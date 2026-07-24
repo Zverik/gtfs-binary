@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gtfs-binary"
+version = "0.1.0"
+description = "Library and tool to work with GTFS feeds in a binary format"
+keywords = ["gtfs", "transit", "feed", "gtb", "command line"]
+readme = "README.md"
+license = "ISC"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = [
+    "zstandard",
+    "protobuf",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: File Formats",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Zverik/gtfs_binary"
+"Bug Tracker" = "https://github.com/Zverik/gtfs_binary/issues"
+
+[project.scripts]
+gtfs_binary = "gtfs_binary.pack:main"
+gtb_inspect = "gtfs_binary.inspect:main"

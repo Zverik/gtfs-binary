@@ -1,0 +1,323 @@
+/** Copyright (c) 2026 Ilya Zverev. <ilya@zverev.info>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
+
+syntax = "proto3";
+
+// Same package as for GTFS Proto.
+package gtfs;
+
+// File structure: magic bytes 'GTB\n', blocks, Footer message,
+// 2-byte big-endian length of the footer (a hint taken from ORC format).
+message Footer {
+  // Version of the schema.
+  uint32 version = 1;
+
+  // Date when the original GTFS feed was built, in YYMMDD format (240319).
+  // Alternatively, a release number for the feed. The only requirement
+  // is that newer feeds should have this number greater than the older.
+  uint32 date = 2;
+
+  // In case of errors, this would be the reference GTFS feed, zip file itself.
+  // Please link to specific builds if possible, e.g. "20240319", not "latest".
+  string original_url = 3;
+
+  // If true, all blocks are compressed with Zstandard.
+  // Including all metadata blocks.
+  bool compressed = 4;
+
+  // Included here because it's the source for time zones and URLs.
+  // Enumerated from zero, like array indices.
+  repeated Agency agencies = 5;
+
+  // The rest of the file is blocks in random order.
+  repeated BlockMetadata blocks = 6;
+}
+
+message Agency {
+  string name = 1;
+  string url = 2;
+  string timezone = 3;
+  string lang = 4;
+  string phone = 5;
+  string fare_url = 6;
+  string email = 7;
+}
+
+message BlockMetadata {
+  // Type of the block.
+  Block block = 1;
+
+  // Offset of the first byte in the file.
+  uint64 offset = 2;
+
+  // Length of the metadata message.
+  uint32 length = 3;
+
+  // Whether the metadata message is compressed.
+  bool compressed = 4;
+}
+
+enum Block {
+  B_UNKNOWN = 0;
+  B_STOPS = 1;
+  B_CALENDAR = 2;
+  B_ROUTES = 3;
+  B_SHAPES = 4;
+}
+
+
+// This is the simplest block. Shape messages immediately follow the
+// metadata block and ordered by their ids.
+message ShapeMetadata {
+  // Shapes can be grouped into chunks to compress them more effectively.
+  // All chunks are of the same size. Should be at least 1.
+  uint32 chunk_size = 1;
+
+  // Sizes in bytes for each consequtive chunk. Note that those are compressed
+  // sizes. You can get an offset by adding this block offset, this block length,
+  // and all chunk length from 0 up until the preceding one.
+  repeated uint32 chunk_lengths = 2;
+}
+
+// Sequence of shapes in a chunk. Follows ShapeMetadata, not included in it.
+message ShapeChunk {
+  repeated Shape shapes = 1;
+}
+
+// A single shape. Its identifier is its number in file, starting from 1.
+message Shape {
+  // Numbers multiplied by 100000 (1e5) and rounded.
+  // Mind the accumulated rounding error!
+  // Each number is the difference with the last.
+  // First is difference with 0 or the last from the same chunk.
+  repeated sint32 longitudes = 1;
+  repeated sint32 latitudes = 2;
+}
+
+
+// Stops are split into chunks for 22-bit geohashes to speed up retrieval.
+// For stops within stations, the station geohash is used for chunking.
+// (TODO: determine the best bit length)
+message StopMetadata {
+  uint32 geohash_xor = 1;
+  // Those geohashes should be XOR-ed with geohash_xor.
+  repeated uint32 geohashes = 2;
+  // In bytes. Negative if not compressed (but everything else is).
+  // TODO: is sint needed? test on 1-3 stop chunks.
+  repeated sint32 chunk_lengths = 3;
+  // This field helps look up stop_id → chunk + index in the chunk.
+  repeated uint32 chunk_stop_counts = 4;
+  // If false, is_station and parent_id in chunks are skipped.
+  bool has_stations = 5;
+
+  // TODO: trie for name lookup
+}
+
+// Column-oriented set of stops. Which means, it's a set
+// of packed column values. E.g. the code field contains strings
+// for every stop in the chunk.
+//
+// Even if packing everything in a single field, having lengths in those
+// would mean adding 24 bytes to every stop,
+// which might mean over 2 MB for a feed. Hence we process the binary
+// data directly. This message is not used, but demonstrates an order and
+// types of fields.
+message StopsChunk {
+  string gtfs_id = 1; // 1-byte length and utf-8 string
+  string code = 2; // same
+  string name = 3; // same
+  string desc = 4; // same
+  sint32 lat = 5; // multiplied by 100000 (1e5), diff from the last
+  sint32 lon = 6; // same
+  // This field is bit-packed (2 bits each) + RLE.
+  // How it works: we pack first 2*4 values bit-wise top-to-bottom:
+  // 0b00112233. If they are all the same, we write the repeating byte:
+  // 0b1xxxxxyy, where x is repeat count minus 4 (0=4 to 31=35), y is the value.
+  // If not, we write a byte with a number of unpacked _bytes_ (1 to 127), each
+  // containing four values. Algorithm TODO.
+  Accessibility wheelchair = 7;
+  repeated uint32 route_ids = 8; // uint32 length, uint32 first, delta uint32 following
+
+  // Those two are skipped if has_stations is false.
+  bool is_station = 9; // we skip all exit/node/boarding stops, bit-packed
+  uint32 parent_id = 10; // stop_id + 1, RLE-encoded
+
+  uint32 geohash = 30; // not included, for sorting purposes.
+}
+
+enum Accessibility {
+  A_UNKNOWN = 0;
+  A_SOME = 1;
+  A_NO = 2;
+}
+
+
+message CalendarMetadata {
+  // A number as YYMMDD: e.g. 240821.
+  // All service dates use offsets in days from it.
+  uint32 base_date = 1;
+
+  // Start dates for every service. First is offset from base_date,
+  // second and others are deltas from previous. Services should be sorted
+  // by start_date, so every number in this list is positive.
+  repeated uint32 start_dates = 2;
+
+  // End dates for every service. Options:
+  // 1. Offset from start_date.
+  // 2. Offset from start_date + delta from previous (signed).
+  // 3. Like start_dates, base_date + delta-encoded (signed).
+  repeated uint32 end_dates = 3;
+
+  // Bit-encoded weekdays for every service, sequentially.
+  // One byte is one service. Zeroes for non-weekday-based services.
+  // Bit 0 is Monday, 6 is Sunday: 0b0SSFTWTM. 0x60 is weekends.
+  repeated uint32 weekdays = 4;
+
+  // This message is followed by a series of CalendarMonth chunks.
+  // Despite the name, those can contain arbitrary number of days.
+  // The first "month" starts at the base_date and goes on incrementally.
+  uint32 days_in_month = 5;
+
+  // Compressed length in bytes for each consequtive "month" chunk.
+  // Can be zero for some months. Negative if not compressed.
+  // We package at most a year of dates.
+  repeated sint32 month_lengths = 6;
+}
+
+// These follow the CalendarMetadata, not attached to messages.
+message CalendarMonth {
+  // Delta coded, first date is offset from the months start.
+  // Cut on the last value greater than one.
+  repeated uint32 date_offsets = 1;
+  repeated CalendarDate dates = 2;
+}
+
+message CalendarDate {
+  // List of service ids incrementally, delta-coded.
+  repeated uint32 included_in = 1;
+
+  // List of serivce ids incrementally, delta-coded.
+  repeated uint32 exception_in = 2;
+}
+
+
+message RouteMetadata {
+  // Compressed length in bytes for each route. Their identifiers
+  // are indices in this list.
+  repeated uint32 route_lengths = 1;
+
+  // Those two determine whether we skip "wheelchair" and "bikes" field from trips.
+  bool has_wheelchair_info = 2;
+  bool has_bike_info = 3;
+}
+
+// These follow the RouteMetadata, not attached to any message.
+message Route {
+  uint32 agency_id = 1;
+  RouteType type = 2;
+  string short_name = 3;
+  string desc = 4;
+  uint32 color = 5; // note: black (0x000000) and white (0xffffff) are swapped!
+  uint32 text_color = 6;
+  bool has_frequencies = 7;
+
+  // No sorting order.
+  repeated Itinerary itineraries = 8;
+}
+
+message Itinerary {
+  uint32 shape_id = 1;
+  repeated uint32 stops = 2;
+  repeated string headsigns = 3; // TODO: RLE?
+  bytes pickup_types = 4; // RLE bit-packed (2 bit each)
+  bytes dropoff_types = 5; // same
+
+  // The most common deltas between stop departures for trips.
+  // Granularity is 5 seconds.
+  repeated uint32 departure_deltas = 6;
+
+  repeated uint32 service_ids = 7; // instead of lengths we pack the single remaning mandatory field
+  bytes trips = 8; // no point in reading the chunk separately
+}
+
+// Column-oriented set of trips following the Route message.
+// As for StopsChunk, does not appear as is, but lists fields
+// and their types for unpacking.
+message TripsChunk {
+  string gtfs_id = 1;
+  // schedule-based: whether we can trust every timestamp for departures/arrivals.
+  // frequency-based: whether the intervals are exact. Bit-packed.
+  bool approximate = 2;
+
+  // (hours * 720) + (minutes * 12) + (seconds / 5), rounded down. Delta-coded.
+  uint32 first_stop_departure = 3;
+
+  // Differences from itinerary.depature_deltas. Granularity is 5 seconds.
+  // Count is (number of trips) × (number of stops - 1)
+  // 0 is missing value, positive numbers should be decreased by 1.
+  // Mind the accumulated rounding error and the +1!
+  // RLE: 1xxxxxxx for x+2 repeats, then a sint32, or 0xxxxxx for x random sint32.
+  repeated sint32 departure_deltas = 4;
+
+  // (we skip arrivals because they matter less)
+
+  // When Route.has_frequencies is true, those two are present.
+  // Start time is in first_stop_departure. Granularity is 5 seconds.
+  // Rounding down for start and up for end.
+  uint32 end_time = 5; // delta from first_stop_departures, 0 if not freq-based.
+  // Here, granularity is 1 second, like in GTFS. No point in saving a byte.
+  uint32 interval = 6;
+
+  // Present only when RouteMetadata.has_wheelchair/bikes are true
+  Accessibility wheelchair = 7; // bit-packed (2 bits each), RLE-encoded (see stops)
+  Accessibility bikes = 8; // same
+}
+
+enum PickupDropoff {
+  PD_YES = 0; // the default, for unspecified
+  PD_NO = 1;
+  PD_PHONE_AGENCY = 2;
+  PD_TELL_DRIVER = 3;
+}
+
+// See also https://developers.google.com/transit/gtfs/reference/extended-route-types
+enum RouteType {
+  T_BUS = 0; // 3 and all 7xx (buses are the default to keep space)
+  T_TRAM = 1; // 0 and all 9xx
+  T_SUBWAY = 2; // 1 and 401-402
+  T_RAIL = 3; // 2 and all 1xx
+  T_FERRY = 4; // 4 and 1200
+  T_CABLE_TRAM = 5; // 5 and maybe 1302 but not sure
+  T_AERIAL = 6; // 6 and 13xx
+  T_FUNICULAR = 7; // 7 and 1400
+  T_COMMUNAL_TAXI = 9; // 1501
+  T_COACH = 10; // all 200-209
+  T_TROLLEYBUS = 11; // 11 and 800
+  T_MONORAIL = 12; // 12 and 405
+
+  T_URBAN_RAIL = 21; // 400, 403-404
+  T_WATER = 22; // 1000
+  T_AIR = 23; // 1100
+  T_TAXI = 24; // all 15xx except 1501
+  T_MISC = 25; // 17xx
+}
+
