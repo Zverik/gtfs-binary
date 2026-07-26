@@ -5,9 +5,12 @@ import json
 import zstandard
 import statistics
 import random
-from typing import BinaryIO
+from datetime import date, timedelta
+from functools import reduce
+from typing import BinaryIO, Any
 from google.protobuf.message import Message
 from . import gtfs_binary_pb2 as g
+from . import decoding as dec
 
 
 ARCH = zstandard.ZstdDecompressor()
@@ -47,13 +50,17 @@ def print_agencies(f: g.Footer):
         }))
 
 
-def list_info(v: list[int], absolute: bool = False) -> dict:
+def list_info(v: list[int], absolute: bool = False, sample: bool = True
+              ) -> dict:
     if len(v) <= 3:
         return {"list": list(v)}
 
     vv = v if not absolute else [abs(x) for x in v]
     return {
-        'sample': list(v) if len(v) <= 10 else random.sample(v, 10),
+        'sample': (None if len(v) <= 10 or not sample
+                   else random.sample(v, 10)),
+        'start': (list(v)[:10] if len(v) <= 10 or not sample
+                  else None),
         'count': len(v),
         'min': min(vv),
         'max': max(vv),
@@ -64,6 +71,15 @@ def list_info(v: list[int], absolute: bool = False) -> dict:
     }
 
 
+def trie_info(t: g.StopLookup) -> dict:
+    return {
+        'string_len': len(t.string_blob),
+        'ids_count': len(t.stop_ids),
+        'nodes_count': len(t.nodes) // 4,
+        'edges_count': len(t.edges) // 3,
+    }
+
+
 def print_shape_metadata(s: g.ShapeMetadata):
     print('Shapes: ' + prep({
         'chunk_size': s.chunk_size,
@@ -71,23 +87,122 @@ def print_shape_metadata(s: g.ShapeMetadata):
     }))
 
 
+def print_shape(f: BinaryIO, block: g.BlockMetadata, s: g.ShapeMetadata,
+                shape_id: int | None = None):
+    if len(s.chunk_lengths) == 0:
+        return
+    if shape_id is None:
+        shape_id = random.randrange(s.chunk_size * len(s.chunk_lengths))
+    shape_chunk = shape_id // s.chunk_size
+    offset = block.offset + block.length + sum(
+        c for c in s.chunk_lengths[:shape_chunk])
+    print(f'Shape {shape_id} in chunk {shape_chunk}, offset {offset}')
+    chunk = read_message(
+        f, g.ShapeChunk(), offset, s.chunk_lengths[shape_chunk], True)
+    shape = chunk.shapes[shape_id - shape_chunk * s.chunk_size]
+    print('Latitudes: ' + prep(list_info(shape.latitudes, sample=False)))
+    print('Longitudes: ' + prep(list_info(shape.longitudes, sample=False)))
+
+
 def print_stop_metadata(s: g.StopMetadata):
     print('Stops: ' + prep({
-        'geohash_xor': s.geohash_xor,
-        'geohashes': list_info(s.geohashes),
         'has_stations': s.has_stations,
+        'lookup_size': len(s.name_lookup.SerializeToString()),
         'chunk_lengths': list_info(s.chunk_lengths, True),
         'chunk_stop_counts': list_info(s.chunk_stop_counts),
     }))
 
 
+def print_stop(f: BinaryIO, block: g.BlockMetadata, s: g.StopMetadata,
+               stop_id: int | None = None, metadata: bool = True):
+    if metadata:
+        print(prep({
+            'geohash_xor': s.geohash_xor,
+            'geohashes': list_info(s.geohashes),
+            'has_stations': s.has_stations,
+            'name_lookup': trie_info(s.name_lookup),
+            'chunk_lengths': list_info(s.chunk_lengths, True),
+            'chunk_stop_counts': list_info(s.chunk_stop_counts),
+        }))
+    if stop_id is None:
+        stop_id = random.randrange(sum(s.chunk_stop_counts))
+    stop_chunk = 0
+    chunk_first_stop_id = 0
+    for i, ch in enumerate(s.chunk_stop_counts):
+        if chunk_first_stop_id + ch > stop_id:
+            stop_chunk = i
+            break
+        chunk_first_stop_id += ch
+    offset = block.offset + block.length + sum(
+        abs(c) for c in s.chunk_lengths[:stop_chunk])
+    print(f'Stop {stop_id} in chunk {stop_chunk}, offset {offset}')
+    chunk = read_data(f, offset, abs(s.chunk_lengths[stop_chunk]),
+                      s.chunk_lengths[stop_chunk] > 0)
+    chunk_len = s.chunk_stop_counts[stop_chunk]
+    d = stop_id - chunk_first_stop_id
+
+    info: dict[str, Any] = {}
+    values: list[Any] = []
+    values, pos = dec.unpack_strings(chunk, 0, chunk_len)
+    info['gtfs_id'] = values[d]
+    values, pos = dec.unpack_strings(chunk, pos, chunk_len)
+    info['code'] = values[d]
+    values, pos = dec.unpack_strings(chunk, pos, chunk_len)
+    info['name'] = values[d]
+    values, pos = dec.unpack_strings(chunk, pos, chunk_len)
+    info['desc'] = values[d]
+    # TODO: lat lon do not work
+    values, pos = dec.unpack_sints(chunk, pos, chunk_len)
+    info['lat'] = values  # [d] / 100000
+    values, pos = dec.unpack_sints_delta(chunk, pos, chunk_len)
+    info['lon'] = values[d] / 100000
+    values, pos = dec.unpack_2bit(chunk, pos, chunk_len)
+    # TODO: complete unpacking of 2bit data
+    for i in range(chunk_len):
+        route_count, pos = dec.unpack_uint(chunk, pos)
+        route_ids, pos = dec.unpack_uints_delta(chunk, pos, route_count)
+        if i == d:
+            info['route_ids'] = route_ids
+    if s.has_stations:
+        values, pos = dec.unpack_1bit(chunk, pos, chunk_len)
+        # TODO: 1bit is not yet unpacked
+        values, pos = dec.unpack_uints_delta(chunk, pos, chunk_len)
+        info['parent_id'] = None if values[d] == 0 else values[d] - 1
+    print(prep(info))
+
+
 def print_calendar_metadata(c: g.CalendarMetadata):
     print('Calendar: ' + prep({
         'base_date': c.base_date,
-        # ...
-        'days_in_months': c.days_in_month,
+        'days_in_month': c.days_in_month,
         'months_lengths': list_info(c.month_lengths, True),
     }))
+
+
+def print_calendar(f: BinaryIO, block: g.BlockMetadata, c: g.CalendarMetadata,
+                   service_id: int | None = None):
+    print(prep({
+        'base_date': c.base_date,
+        'start_dates': list_info(c.start_dates),
+        'end_dates': list_info(c.end_dates),
+        'weekdays': list_info(c.weekdays),
+        'days_in_month': c.days_in_month,
+        'months_lengths': list_info(c.month_lengths, True),
+    }))
+    if service_id is None:
+        service_id = random.randrange(len(c.start_dates))
+    base_date = date(
+        2000 + c.base_date // 10000, (c.base_date // 100) % 100,
+        c.base_date % 100)
+    start_date = reduce(lambda a, b: a + b, c.start_dates[:service_id])
+    print(prep({
+        'service_id': service_id,
+        'start_date': (base_date + timedelta(start_date)).strftime('%Y-%m-%d'),
+        'end_date': (base_date + timedelta(
+            start_date + c.end_dates[service_id])).strftime('%Y-%m-%d'),
+        'weekdays': bin(c.weekdays[service_id]),
+    }))
+    # TODO: days in months for the current month
 
 
 def print_route_metadata(r: g.RouteMetadata):
@@ -96,6 +211,47 @@ def print_route_metadata(r: g.RouteMetadata):
         'has_bike_info': r.has_bike_info,
         'route_lengths': list_info(r.route_lengths),
     }))
+
+
+def print_route(f: BinaryIO, block: g.BlockMetadata, r: g.RouteMetadata,
+                route_id: int | None = None):
+    if route_id is None:
+        route_id = random.randrange(len(r.route_lengths))
+    offset = block.offset + block.length + sum(
+        c for c in r.route_lengths[:route_id])
+    route = read_message(
+        f, g.Route(), offset, r.route_lengths[route_id], True)
+    print(prep({
+        'route_id': route_id,
+        'agency_id': route.agency_id,
+        'type': g.RouteType.Name(route.type),
+        'desc': route.desc or None,
+        'color': hex(route.color),
+        'text_color': hex(route.text_color),
+        'has_frequencies': route.has_frequencies,
+    }))
+    for itin in route.itineraries:
+        service_ids, _ = dec.unpack_uints_rle(itin.service_ids, 0, 9999)
+        print(prep({
+            'shape_id': itin.shape_id,
+            'stops': list(itin.stops),
+            'headsigns': dec.unpack_strings_rle(
+                itin.headsigns, 0, len(itin.stops)),
+            'pickup_types': itin.pickup_types.hex(),  # TODO: unpack
+            'dropoff_types': itin.dropoff_types.hex(),  # TODO: unpack
+            'departure_deltas': list(itin.departure_deltas),
+            'service_ids': list_info(service_ids),
+            'trips_length': len(itin.trips),
+        }))
+        print_trips(itin.trips, len(service_ids), 2)
+
+
+def print_trips(data: bytes, count: int, toprint: int = 2):
+    if toprint > count:
+        toprint = count
+    if not toprint:
+        return
+    pass  # TODO
 
 
 def read_data(f: BinaryIO, offset: int, length: int,
@@ -126,6 +282,7 @@ def main():
     parser.add_argument(
         '-b', '--block',
         help='Block name (agencies/stops/shapes/calendar/routes)')
+    parser.add_argument('--id', type=int, help='Object id to print')
     options = parser.parse_args()
 
     f = open(options.input, 'rb')
@@ -154,8 +311,13 @@ def main():
     elif options.block == 'agencies':
         print_agencies(footer)
     elif options.block == 'shapes':
-        # TODO
-        print(f'Unsupported block type: {options.block}')
+        print_shape(f, blocks[g.Block.B_SHAPES], shapes, options.id)
+    elif options.block == 'stops':
+        print_stop(f, blocks[g.Block.B_STOPS], stops, options.id)
+    elif options.block == 'calendar':
+        print_calendar(f, blocks[g.Block.B_CALENDAR], calendar, options.id)
+    elif options.block == 'routes':
+        print_route(f, blocks[g.Block.B_ROUTES], routes, options.id)
     else:
         print(f'Unsupported block type: {options.block}')
 

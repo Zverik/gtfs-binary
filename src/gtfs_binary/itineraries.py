@@ -25,7 +25,7 @@ class Trip:
         self.stops = [s.stop_id for s in stops]
         self.shape_id = shape_id
         headsign = row.get('trip_headsign')
-        self.headsigns = [s.headsign or headsign for s in stops]
+        self.headsigns = [s.headsign or headsign or '' for s in stops]
         self.pickup_types = [s.pickup for s in stops]
         self.dropoff_types = [s.dropoff for s in stops]
 

@@ -8,6 +8,7 @@ from collections import defaultdict
 from statistics import mode
 from . import gtfs_binary_pb2 as g
 from . import encoding as e
+from .trie import Trie, pack_trie
 
 
 class CalendarService:
@@ -37,7 +38,7 @@ class Trip:
 
 class Itinerary:
     def __init__(self, shape_id: int | None, stops: list[int],
-                 headsigns: list[str | None],
+                 headsigns: list[str],
                  pickup_types: list[g.PickupDropoff],
                  dropoff_types: list[g.PickupDropoff]):
         self.shape_id = shape_id
@@ -129,11 +130,11 @@ class GtfsBinary:
             chunk = g.ShapeChunk(shapes=shapes)
             last_coord = (0, 0)
             for shape in chunk.shapes:
-                new_last = (shape.latitudes[-1], shape.longitudes[-1])
+                # new_last = (shape.latitudes[-1], shape.longitudes[-1])
                 for i in range(len(shape.latitudes) - 1, -1, -1):
                     shape.latitudes[i] -= last_coord[0] if i == 0 else shape.latitudes[i-1]
                     shape.longitudes[i] -= last_coord[1] if i == 0 else shape.longitudes[i-1]
-                last_coord = new_last
+                # last_coord = new_last
             chunks.append(self.compress(chunk.SerializeToString()))
         metadata = g.ShapeMetadata(
             chunk_size=chunk_size,
@@ -142,6 +143,8 @@ class GtfsBinary:
 
     def pack_stops(self) -> tuple[bytes, bytes]:
         has_stations = any(s.parent_id for s in self.stops)
+        routes_by_stops = self.routes_by_stops()
+        trie = Trie([s.name for s in self.stops])
 
         chunks: list[tuple[bool, bytes]] = []
         geohash_xor = self.stops[0].geohash
@@ -159,7 +162,7 @@ class GtfsBinary:
                 geohashes.append(geohash - last_geohash)
                 stop_counts.append(len(chunk))
                 chunks.append(self.compress_if_better(self.pack_stop_chunk(
-                    chunk, has_stations)))
+                    chunk, has_stations, routes_by_stops)))
                 last_geohash = geohash
 
         metadata = g.StopMetadata(
@@ -168,10 +171,12 @@ class GtfsBinary:
             chunk_lengths=[len(c[1]) * (1 if c[0] else -1) for c in chunks],
             chunk_stop_counts=stop_counts,
             has_stations=has_stations,
+            name_lookup=pack_trie(trie),
         )
         return metadata.SerializeToString(), b''.join(c[1] for c in chunks)
 
-    def pack_stop_chunk(self, stops: list[g.StopsChunk], stations: bool
+    def pack_stop_chunk(self, stops: list[g.StopsChunk], stations: bool,
+                        routes_by_stops: dict[int, list[int]],
                         ) -> bytes:
         result = b''
         result += e.pack_strings([s.gtfs_id for s in stops])
@@ -187,6 +192,14 @@ class GtfsBinary:
             result += e.pack_1bit([s.is_station for s in stops])
             result += e.pack_uints_rle([s.parent_id + 1 for s in stops])
         return result
+
+    def routes_by_stops(self) -> dict[int, list[int]]:
+        result: dict[int, set[int]] = defaultdict(set)
+        for route_id, itins in self.itineraries.items():
+            for i in itins:
+                for s in i.stops:
+                    result[route_id].add(s)
+        return {r: list(sorted(s)) for r, s in result.items()}
 
     def pack_calendar(self) -> tuple[bytes, bytes]:
         base_date = self.services[0].start_date
@@ -226,13 +239,11 @@ class GtfsBinary:
 
         # Determine the days_in_month so that months are not too big.
         last_day = max(days.keys())
-        MAX_SERVICES_IN_MONTH = 2000
-        MAX_DAYS_IN_MONTH = 30
         days_list = [base_date + timedelta(d) for d in
                      range((last_day - base_date).days + 1)]
         day_sizes = [len(days[d].included_in) + len(days[d].exception_in)
                      for d in days_list]
-        days_in_month = 30  # TODO
+        days_in_month = self.calculate_days_in_month(day_sizes)
 
         # Sort days into months.
         months: list[g.CalendarMonth] = []
@@ -254,6 +265,33 @@ class GtfsBinary:
                     dates=[days[d] for d in listed_dates],
                 ))
         return days_in_month, months
+
+    def calculate_days_in_month(self, days: list[int]) -> int:
+        MAX_SERVICES_IN_MONTH = 2000
+        MAX_DAYS_IN_MONTH = 30
+
+        def fits(m: int) -> bool:
+            for batch in itertools.batched(days, m):
+                if any(d > MAX_SERVICES_IN_MONTH for d in batch):
+                    return False
+            return True
+
+        low_bound = 2
+        high_bound = MAX_DAYS_IN_MONTH
+        if fits(high_bound):
+            return high_bound
+        if not fits(low_bound):
+            return low_bound
+
+        while low_bound < high_bound:
+            mid = (low_bound + high_bound) // 2
+            if fits(mid):
+                # assuming for low + 1 == high, mid = low
+                high_bound = mid
+            else:
+                low_bound = mid + 1
+
+        return low_bound
 
     def pack_routes(self) -> tuple[bytes, bytes]:
         chunks: list[bytes] = []
@@ -281,6 +319,7 @@ class GtfsBinary:
 
             for itin_id, itin in enumerate(self.itineraries[route_id]):
                 trips = route_trips[itin_id]
+                trips.sort(key=lambda t: t[1].departures[0])
                 common_deltas = self.calculate_medians(
                     [t[1].departures for t in trips])
 
@@ -291,11 +330,12 @@ class GtfsBinary:
                 route.itineraries.append(g.Itinerary(
                     shape_id=itin.shape_id,
                     stops=itin.stops,
-                    headsigns=itin.headsigns,  # TODO: optimize
+                    headsigns=e.pack_strings_rle(itin.headsigns),
                     pickup_types=e.pack_2bit(itin.pickup_types),
                     dropoff_types=e.pack_2bit(itin.dropoff_types),
                     departure_deltas=common_deltas,
-                    service_ids=[t[1].service_id for t in trips],
+                    service_ids=e.pack_uints_rle(
+                        [t[1].service_id for t in trips]),
                     trips=self.compress(trips_chunk),
                 ))
             chunks.append(self.compress(route.SerializeToString()))
@@ -317,16 +357,16 @@ class GtfsBinary:
                          has_frequencies: bool,
                          has_wheelchair: bool, has_bikes: bool,
                          common_deltas: list[int]) -> bytes:
-        trips.sort(key=lambda t: t[1].departures[0])
         result = b''
-        result += e.pack_strings([t[0] for t in trips])
-        result += e.pack_1bit([t[1].approximate for t in trips])
         result += e.pack_uints_delta([t[1].departures[0] for t in trips])
         for t in trips:
             result += e.pack_sints_delta([
                 p[1] - p[0] - common_deltas[i]
                 for i, p in enumerate(itertools.pairwise(t[1].departures))
             ])
+
+        result += e.pack_strings([t[0] for t in trips])
+        result += e.pack_1bit([t[1].approximate for t in trips])
 
         if has_frequencies:
             result += e.pack_uints([

@@ -76,77 +76,60 @@ def pack_sints(values: list[int], add_len: bool = False) -> bytes:
 
 def pack_uints_delta(values: list[int], start: int = 0, add_len: bool = False
                      ) -> bytes:
-    vcount = b'' if not add_len else pack_uint(len(values))
-    return vcount + b''.join(
-        pack_uint(values[i] - (start if i == 0 else values[i-1]))
-        for i in range(len(values))
-    )
+    return pack_uints(
+        [values[i] - (start if i == 0 else values[i-1])
+         for i in range(len(values))], add_len=add_len)
 
 
 def pack_sints_delta(values: list[int], start: int = 0, add_len: bool = False
                      ) -> bytes:
-    vcount = b'' if not add_len else pack_uint(len(values))
-    return vcount + b''.join(
-        pack_sint(values[i] - (start if i == 0 else values[i-1]))
-        for i in range(len(values))
-    )
+    return pack_sints(
+        [values[i] - (start if i == 0 else values[i-1])
+         for i in range(len(values))], add_len=add_len)
 
 
-def pack_uints_rle(values: list[int]) -> bytes:
+def pack_strings_rle(values: list[str]) -> bytes:
+    return pack_rle(values, lambda s: pack_string(s))
+
+
+def pack_uints_rle(values: list[int], add_len: bool = False) -> bytes:
     """Same algorithm as ORC RLEv1."""
-    result = b''
-    rnd: list[int] = []
+    return pack_rle(values, lambda v: pack_uint(v), add_len=add_len)
+
+
+def pack_bytes_rle(values: bytes, add_len: bool = False) -> bytes:
+    return pack_rle(values, lambda v: v.to_bytes(), add_len=add_len)
+
+
+def pack_rle(values, value_to_bytes, min_run: int = 2,
+             add_len: bool = False) -> bytes:
+    """Same algorithm as ORC."""
+    result = b'' if not add_len else pack_uint(len(values))
+    rnd = []
     i = 0
     while i < len(values):
-        if (i + 2 < len(values) and values[i] == values[i+1]
-                and values[i] == values[i+2]):
+        if (i + min_run - 1 < len(values) and
+                all(values[i] == values[i+j] for j in range(1, min_run))):
             if len(rnd) > 0:
-                result += (-len(rnd)).to_bytes(1, signed=True) + pack_uints(
-                    rnd)
+                result += (-len(rnd)).to_bytes(1, signed=True) + b''.join(
+                    value_to_bytes(r) for r in rnd)
                 rnd = []
             # Start a run
-            j = i + 2
-            while j < len(values) and values[j] == values[i] and j - i < 130:
+            j = i + min_run - 1
+            while (j < len(values) and values[j] == values[i]
+                   and j - i < 127 + min_run):
                 j += 1
-            result += (j - i - 3).to_bytes() + pack_uint(values[i])
+            result += (j - i - min_run).to_bytes() + value_to_bytes(values[i])
             i = j
         else:
             if len(rnd) == 128:
                 # reset the literal list
-                result += (-len(rnd)).to_bytes(1, signed=True) + pack_uints(
-                    rnd)
+                result += (-len(rnd)).to_bytes(1, signed=True) + b''.join(
+                    value_to_bytes(r) for r in rnd)
                 rnd = []
             rnd.append(values[i])
             i += 1
     if len(rnd) > 0:
-        result += (-len(rnd)).to_bytes(1, signed=True) + pack_uints(rnd)
-    return result
-
-
-def pack_bytes_rle(values: bytes) -> bytes:
-    """Same algorithm as ORC."""
-    result = b''
-    rnd = b''
-    i = 0
-    while i < len(values):
-        if (i + 2 < len(values) and values[i] == values[i+1]
-                and values[i] == values[i+2]):
-            if len(rnd) > 0:
-                result += (-len(rnd)).to_bytes(1, signed=True) + rnd
-                rnd = b''
-            # Start a run
-            j = i + 2
-            while j < len(values) and values[j] == values[i] and j - i < 130:
-                j += 1
-            result += (j - i - 3).to_bytes() + values[i].to_bytes()
-            i = j
-        else:
-            if len(rnd) == 128:
-                # reset the literal list
-                result += (-len(rnd)).to_bytes(1, signed=True) + rnd
-                rnd = b''
-            rnd += values[i].to_bytes()
-            i += 1
-    if len(rnd) > 0:
-        result += (-len(rnd)).to_bytes(1, signed=True) + rnd
+        result += (-len(rnd)).to_bytes(1, signed=True) + b''.join(
+            value_to_bytes(r) for r in rnd)
     return result

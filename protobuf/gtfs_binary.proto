@@ -116,20 +116,30 @@ message Shape {
 
 // Stops are split into chunks for 22-bit geohashes to speed up retrieval.
 // For stops within stations, the station geohash is used for chunking.
-// (TODO: determine the best bit length)
 message StopMetadata {
   uint32 geohash_xor = 1;
   // Those geohashes should be XOR-ed with geohash_xor.
   repeated uint32 geohashes = 2;
   // In bytes. Negative if not compressed (but everything else is).
-  // TODO: is sint needed? test on 1-3 stop chunks.
   repeated sint32 chunk_lengths = 3;
   // This field helps look up stop_id → chunk + index in the chunk.
   repeated uint32 chunk_stop_counts = 4;
   // If false, is_station and parent_id in chunks are skipped.
   bool has_stations = 5;
 
-  // TODO: trie for name lookup
+  StopLookup name_lookup = 6;
+}
+
+// Encodes a radix trie structure.
+message StopLookup {
+  // Edges reference this blob.
+  bytes string_blob = 1;
+  // Nodes reference stop ids, which are ordered for convenient lookup.
+  repeated uint32 stop_ids = 2;
+  // Series of 4 integers: edge offset, edge count, stop offset, stop count.
+  repeated uint32 nodes = 3;
+  // Series of 3 integers: label offset, label length, node index.
+  repeated uint32 edges = 4;
 }
 
 // Column-oriented set of stops. Which means, it's a set
@@ -247,7 +257,7 @@ message Route {
 message Itinerary {
   uint32 shape_id = 1;
   repeated uint32 stops = 2;
-  repeated string headsigns = 3; // TODO: RLE?
+  bytes headsigns = 3; // strings RLE
   bytes pickup_types = 4; // RLE bit-packed (2 bit each)
   bytes dropoff_types = 5; // same
 
@@ -255,7 +265,7 @@ message Itinerary {
   // Granularity is 5 seconds.
   repeated uint32 departure_deltas = 6;
 
-  repeated uint32 service_ids = 7; // instead of lengths we pack the single remaning mandatory field
+  bytes service_ids = 7; // instead of lengths we pack the single remaning mandatory field, uint RLE
   bytes trips = 8; // no point in reading the chunk separately
 }
 
@@ -263,22 +273,23 @@ message Itinerary {
 // As for StopsChunk, does not appear as is, but lists fields
 // and their types for unpacking.
 message TripsChunk {
-  string gtfs_id = 1;
-  // schedule-based: whether we can trust every timestamp for departures/arrivals.
-  // frequency-based: whether the intervals are exact. Bit-packed.
-  bool approximate = 2;
-
   // (hours * 720) + (minutes * 12) + (seconds / 5), rounded down. Delta-coded.
-  uint32 first_stop_departure = 3;
+  // First because we want to filter trips by first stop-last stop times.
+  uint32 first_stop_departure = 1;
 
   // Differences from itinerary.depature_deltas. Granularity is 5 seconds.
   // Count is (number of trips) × (number of stops - 1)
   // 0 is missing value, positive numbers should be decreased by 1.
   // Mind the accumulated rounding error and the +1!
   // RLE: 1xxxxxxx for x+2 repeats, then a sint32, or 0xxxxxx for x random sint32.
-  repeated sint32 departure_deltas = 4;
+  repeated sint32 departure_deltas = 2;
 
   // (we skip arrivals because they matter less)
+
+  string gtfs_id = 3;
+  // schedule-based: whether we can trust every timestamp for departures/arrivals.
+  // frequency-based: whether the intervals are exact. Bit-packed.
+  bool approximate = 4;
 
   // When Route.has_frequencies is true, those two are present.
   // Start time is in first_stop_departure. Granularity is 5 seconds.
