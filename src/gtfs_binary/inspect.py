@@ -74,8 +74,8 @@ def trie_info(t: g.StopLookup) -> dict[str, int]:
     return {
         'string_len': len(t.string_blob),
         'ids_count': len(t.stop_ids),
-        'nodes_count': len(t.nodes) // 4,
-        'edges_count': len(t.edges) // 3,
+        'nodes_count': len(t.node_edge_offset),
+        'edges_count': len(t.edge_label_offset),
     }
 
 

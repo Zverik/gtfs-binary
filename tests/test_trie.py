@@ -51,13 +51,13 @@ class TestTrie(unittest.TestCase):
         t.add('tei', 4)
         p = PackedTrie(pack_trie(t))
 
-        self.assertEqual(p.find('test'), [1])
-        self.assertEqual(p.find('tes'), [1])
-        self.assertEqual(p.find('teine'), [3])
-        self.assertEqual(p.find('tein'), [3])
-        self.assertEqual(set(p.find('tei')), set([2, 3, 4]))
-        self.assertEqual(set(p.find('te')), set([1, 2, 3, 4]))
-        self.assertEqual(set(p.find('t')), set([1, 2, 3, 4]))
+        self.assertEqual(p.find('test'), [1], p)
+        self.assertEqual(p.find('tes'), [1], p)
+        self.assertEqual(p.find('teine'), [3], p)
+        self.assertEqual(p.find('tein'), [3], p)
+        self.assertEqual(set(p.find('tei')), set([2, 3, 4]), p)
+        self.assertEqual(set(p.find('te')), set([1, 2, 3, 4]), p)
+        self.assertEqual(set(p.find('t')), set([1, 2, 3, 4]), p)
 
 
 if __name__ == '__main__':

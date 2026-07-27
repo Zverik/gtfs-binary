@@ -136,10 +136,15 @@ message StopLookup {
   bytes string_blob = 1;
   // Nodes reference stop ids, which are ordered for convenient lookup.
   repeated uint32 stop_ids = 2;
-  // Series of 4 integers: edge offset, edge count, stop offset, stop count.
-  repeated uint32 nodes = 3;
-  // Series of 3 integers: label offset, label length, node index.
-  repeated uint32 edges = 4;
+  // Nodes in the graph, split into columns to compress better.
+  repeated uint32 node_edge_offset = 3; // delta-coded
+  repeated uint32 node_edge_count = 4;
+  repeated uint32 node_stop_offset = 5; // delta-coded
+  repeated uint32 node_stop_count = 6;
+  // Edges in the graph.
+  repeated uint32 edge_label_offset = 7;
+  repeated uint32 edge_label_length = 8;
+  repeated uint32 edge_node_index = 9;
 }
 
 // Column-oriented set of stops. Which means, it's a set

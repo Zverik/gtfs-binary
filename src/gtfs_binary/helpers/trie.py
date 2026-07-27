@@ -126,6 +126,12 @@ class PackedEdge:
     node_index: int
 
 
+def delta_encode(values: list[int]) -> list[int]:
+    if len(values) < 2:
+        return values
+    return [values[0]] + [b - a for a, b in itertools.pairwise(values)]
+
+
 def pack_trie(trie: Trie) -> g.StopLookup:
     values: list[int] = []
     string: bytes = b''
@@ -137,7 +143,7 @@ def pack_trie(trie: Trie) -> g.StopLookup:
     for _, node in trie.root.all_nodes():
         node.packed_index = len(nodes)
         nodes.append(PackedNode(
-            edge_offset=0 if not node.children else len(edges),
+            edge_offset=len(edges),
             edge_count=len(node.children),
             ids_offset=len(values),
             ids_count=node.count_values(),
@@ -163,18 +169,21 @@ def pack_trie(trie: Trie) -> g.StopLookup:
     return g.StopLookup(
         string_blob=string,
         stop_ids=values,
-        nodes=list(itertools.chain.from_iterable(
-            [n.edge_offset, n.edge_count, n.ids_offset, n.ids_count]
-            for n in nodes)),
-        edges=list(itertools.chain.from_iterable(
-            [e.label_offset, e.label_length, e.node_index]
-            for e in edges)),
+        node_edge_offset=delta_encode([n.edge_offset for n in nodes]),
+        node_edge_count=[n.edge_count for n in nodes],
+        node_stop_offset=delta_encode([n.ids_offset for n in nodes]),
+        node_stop_count=[n.ids_count for n in nodes],
+        edge_label_offset=[e.label_offset for e in edges],
+        edge_label_length=[e.label_length for e in edges],
+        edge_node_index=[e.node_index for e in edges],
     )
 
 
 class PackedTrie:
     def __init__(self, trie: g.StopLookup) -> None:
         self.trie = trie
+        self.edge_offsets = list(itertools.accumulate(trie.node_edge_offset))
+        self.stop_offsets = list(itertools.accumulate(trie.node_stop_offset))
 
     def find(self, search: str) -> list[int]:
         if not search:
@@ -183,19 +192,38 @@ class PackedTrie:
         node = 0
         while sb:
             found = False
-            for edge_idx in range(self.trie.nodes[node+1]):
-                edge = (self.trie.nodes[node] + edge_idx) * 3
-                p_start = self.trie.edges[edge]
+            for edge_idx in range(self.trie.node_edge_count[node]):
+                edge = self.edge_offsets[node] + edge_idx
+                p_start = self.trie.edge_label_offset[edge]
                 prefix = self.trie.string_blob[
-                    p_start:p_start+self.trie.edges[edge+1]]
+                    p_start:p_start+self.trie.edge_label_length[edge]]
                 if prefix.startswith(sb) or sb.startswith(prefix):
-                    node = self.trie.edges[edge+2] * 4
+                    node = self.trie.edge_node_index[edge]
                     sb = sb[min(len(sb), len(prefix)):]
                     found = True
                     break
             if not found:
                 return []
 
-        first_stop = self.trie.nodes[node+2]
+        first_stop = self.stop_offsets[node]
         return self.trie.stop_ids[
-            first_stop:first_stop + self.trie.nodes[node+3]]
+            first_stop:first_stop + self.trie.node_stop_count[node]]
+
+    def __str__(self) -> str:
+        nodes = [
+            (self.edge_offsets[i],
+             self.trie.node_edge_count[i],
+             self.stop_offsets[i],
+             self.trie.node_stop_count[i])
+            for i in range(len(self.edge_offsets))]
+        edges = [
+            (self.trie.edge_label_offset[i],
+             self.trie.edge_label_length[i],
+             self.trie.edge_node_index[i])
+            for i in range(len(self.trie.edge_label_offset))]
+        return str({
+            'strings': self.trie.string_blob,
+            'ids': self.trie.stop_ids,
+            'nodes': nodes,
+            'edges': edges,
+        })
