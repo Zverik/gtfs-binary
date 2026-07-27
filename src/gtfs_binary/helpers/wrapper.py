@@ -231,6 +231,12 @@ class GtfsBinary:
         )
         return metadata.SerializeToString(), b''.join(m[1] for m in cmonths)
 
+    def delta_encode(self, values: list[int]) -> list[int]:
+        if len(values) < 2:
+            return values
+        s = sorted(values)
+        return [s[0]] + [b - a for a, b in itertools.pairwise(s)]
+
     def pack_calendar_months(self, base_date: date
                              ) -> tuple[int, list[g.CalendarMonth]]:
         """Returns (days_in_month, list of months)."""
@@ -243,6 +249,15 @@ class GtfsBinary:
             for d in s.except_days:
                 if d >= base_date:
                     days[d].exception_in.append(service_id)
+
+        # Delta-encode services in days.
+        for day in days.values():
+            incl = self.delta_encode(day.included_in)
+            day.included_in.clear()
+            day.included_in.extend(incl)
+            excl = self.delta_encode(day.exception_in)
+            day.exception_in.clear()
+            day.exception_in.extend(excl)
 
         # Determine the days_in_month so that months are not too big.
         last_day = max(days.keys())
@@ -266,6 +281,8 @@ class GtfsBinary:
                 )
                 while len(date_offsets) > 0 and date_offsets[-1] == 1:
                     del date_offsets[-1]
+                if date_offsets == [0]:
+                    date_offsets = []
 
                 months.append(g.CalendarMonth(
                     date_offsets=date_offsets,

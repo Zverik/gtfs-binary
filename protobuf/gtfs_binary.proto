@@ -273,6 +273,7 @@ message Itinerary {
 // Column-oriented set of trips following the Route message.
 // As for StopsChunk, does not appear as is, but lists fields
 // and their types for unpacking.
+// Trips are ordered by the first departure.
 message TripsChunk {
   // (hours * 720) + (minutes * 12) + (seconds / 5), rounded down. Delta-coded.
   // First because we want to filter trips by first stop-last stop times.

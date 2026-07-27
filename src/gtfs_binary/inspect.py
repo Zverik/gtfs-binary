@@ -51,7 +51,7 @@ def print_agencies(f: g.Footer):
 
 
 def list_info(v: list[int], absolute: bool = False, sample: bool = True
-              ) -> dict:
+              ) -> dict[str, Any]:
     if len(v) <= 3:
         return {"list": list(v)}
 
@@ -70,7 +70,7 @@ def list_info(v: list[int], absolute: bool = False, sample: bool = True
     }
 
 
-def trie_info(t: g.StopLookup) -> dict:
+def trie_info(t: g.StopLookup) -> dict[str, int]:
     return {
         'string_len': len(t.string_blob),
         'ids_count': len(t.stop_ids),
@@ -178,19 +178,21 @@ def print_calendar_metadata(c: g.CalendarMetadata):
 
 def print_calendar(f: BinaryIO, block: g.BlockMetadata, c: g.CalendarMetadata,
                    service_id: int | None = None):
-    print(prep({
-        'base_date': c.base_date,
-        'start_dates': list_info(c.start_dates),
-        'end_dates': list_info(c.end_dates),
-        'weekdays': list_info(c.weekdays),
-        'days_in_month': c.days_in_month,
-        'months_lengths': list_info(c.month_lengths, True),
-    }))
     if service_id is None:
         service_id = random.randrange(len(c.start_dates))
+        print(prep({
+            'base_date': c.base_date,
+            'start_dates': list_info(c.start_dates),
+            'end_dates': list_info(c.end_dates),
+            'weekdays': list_info(c.weekdays),
+            'days_in_month': c.days_in_month,
+            'months_lengths': list_info(c.month_lengths, True),
+        }))
+
     base_date = date(
         2000 + c.base_date // 10000, (c.base_date // 100) % 100,
         c.base_date % 100)
+
     start_date = reduce(lambda a, b: a + b, c.start_dates[:service_id])
     print(prep({
         'service_id': service_id,
@@ -199,7 +201,41 @@ def print_calendar(f: BinaryIO, block: g.BlockMetadata, c: g.CalendarMetadata,
             start_date + c.end_dates[service_id])).strftime('%Y-%m-%d'),
         'weekdays': bin(c.weekdays[service_id]),
     }))
-    # TODO: days in months for the current month
+
+    today = date.today() + timedelta(days=30)
+    today_month = (today - base_date).days // c.days_in_month
+    if today_month >= len(c.month_lengths):
+        today = base_date + timedelta(days=c.days_in_month)
+        today_month = 1
+    offset = block.offset + block.length + sum(
+        c for c in c.month_lengths[:today_month])
+    print(f'Day {today.strftime('%Y-%m-%d')} in month {today_month}, '
+          f'offset {offset}')
+    month = read_message(
+        f, g.CalendarMonth(), offset, c.month_lengths[today_month], True)
+    info = {
+        'date_offsets': list(month.date_offsets),
+        'included_in': {},
+        'exception_in': {},
+    }
+
+    current_date = base_date + timedelta(days=today_month * c.days_in_month)
+    for i, cdate in enumerate(month.dates):
+        if i == 0:
+            skip = 0
+        elif i < len(month.date_offsets):
+            skip = month.date_offsets[i]
+        else:
+            skip = 1
+
+        current_date += timedelta(days=skip)
+        if current_date == today:
+            info['included_in'] = list_info(cdate.included_in)
+            info['exception_in'] = list_info(cdate.exception_in)
+        if current_date >= today:
+            break
+
+    print(prep(info))
 
 
 def print_route_metadata(r: g.RouteMetadata):
@@ -208,6 +244,13 @@ def print_route_metadata(r: g.RouteMetadata):
         'has_bike_info': r.has_bike_info,
         'route_lengths': list_info(r.route_lengths),
     }))
+
+
+def int_to_time(value: int) -> str:
+    hour = value // 3600
+    minute = (value // 60) % 60
+    second = value % 60
+    return f'{hour:02d}:{minute:02d}:{second:02d}'
 
 
 def print_route(f: BinaryIO, block: g.BlockMetadata, r: g.RouteMetadata,
@@ -230,6 +273,7 @@ def print_route(f: BinaryIO, block: g.BlockMetadata, r: g.RouteMetadata,
         'has_frequencies': route.has_frequencies,
     }))
     for itin in route.itineraries:
+        print()
         service_ids = dec.unpack_uints_rle(itin.service_ids, 0, 9999)[0]
         print(prep({
             'shape_id': itin.shape_id,
@@ -260,8 +304,8 @@ def print_trips(data: bytes, count: int, stops: int, toprint: int,
     info: dict[str, list[Any]] = {}
     values: list[Any] = []
 
-    values, pos = dec.unpack_uints_delta(data, 0, count)
-    info['first_stop_departure'] = values[:toprint]
+    deps, pos = dec.unpack_uints_delta(data, 0, count)
+    info['first_stop_departure'] = [int_to_time(v*5) for v in deps[:toprint]]
     values, pos = dec.unpack_sints_delta(data, pos, count * (stops - 1))
     info['departure_deltas'] = []
     for i in range(toprint):
@@ -274,7 +318,8 @@ def print_trips(data: bytes, count: int, stops: int, toprint: int,
 
     if has_frequencies:
         values, pos = dec.unpack_uints(data, pos, count)
-        info['end_time'] = values[:toprint]
+        info['end_time'] = [
+            int_to_time((v+d)*5) for v, d in zip(values[:toprint], deps)]
         values, pos = dec.unpack_uints(data, pos, count)
         info['interval'] = values[:toprint]
     if has_wheelchair:
