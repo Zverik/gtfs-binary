@@ -1,9 +1,7 @@
-from .wrapper import IdReference, Trip
-from .helper import GtfsHelper
+from ..helpers import IdReference, Trip, GtfsHelper, g
 from typing import TextIO
 from zipfile import ZipFile
 from dataclasses import dataclass
-from . import gtfs_binary_pb2 as g
 
 
 @dataclass

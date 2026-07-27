@@ -6,7 +6,7 @@ from typing import BinaryIO
 from datetime import date, timedelta
 from collections import defaultdict
 from statistics import mode
-from . import gtfs_binary_pb2 as g
+from .. import gtfs_binary_pb2 as g
 from . import encoding as e
 from .trie import Trie, pack_trie
 

@@ -1,2 +1,1 @@
-from .trie import Trie, PackedTrie, pack_trie
-from . import decoding, encoding
+from .helpers import decoding, encoding, Trie, PackedTrie, pack_trie, g

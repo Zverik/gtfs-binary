@@ -1,8 +1,6 @@
-from .helper import GtfsHelper
-from .wrapper import IdReference, Itinerary
+from ..helpers import GtfsHelper, IdReference, Itinerary, g
 from zipfile import ZipFile
 from typing import TextIO
-from . import gtfs_binary_pb2 as g
 from collections import defaultdict
 from dataclasses import dataclass
 from hashlib import md5

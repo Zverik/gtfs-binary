@@ -1,7 +1,7 @@
 import itertools
 from dataclasses import dataclass
 from typing import Generator
-from . import gtfs_binary_pb2 as g
+from .. import gtfs_binary_pb2 as g
 
 
 class Node:

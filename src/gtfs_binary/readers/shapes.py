@@ -1,7 +1,5 @@
-from .helper import GtfsHelper
-from .wrapper import IdReference
+from ..helpers import GtfsHelper, IdReference, g
 from zipfile import ZipFile
-from . import gtfs_binary_pb2 as g
 
 
 SHAPE_SCALE = 100000

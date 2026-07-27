@@ -1,8 +1,6 @@
-from .helper import GtfsHelper
-from .wrapper import IdReference
+from ..helpers import GtfsHelper, IdReference, CalendarService
 from zipfile import ZipFile
 from datetime import date, timedelta
-from .wrapper import CalendarService
 
 
 class CalendarReader:

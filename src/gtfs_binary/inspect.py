@@ -10,7 +10,7 @@ from functools import reduce
 from typing import BinaryIO, Any
 from google.protobuf.message import Message
 from . import gtfs_binary_pb2 as g
-from . import decoding as dec
+from .helpers import decoding as dec
 
 
 ARCH = zstandard.ZstdDecompressor()

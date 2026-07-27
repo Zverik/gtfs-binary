@@ -1,14 +1,11 @@
 import argparse
 from datetime import date
 from zipfile import ZipFile
-from .wrapper import GtfsBinary, IdReference
-from .agencies import AgencyReader
-from .stops import StopsReader
-from .shapes import ShapesReader
-from .calendar import CalendarReader
-from .routes import RoutesReader
-from .itineraries import ItineraryReader
-from .trips import TripsReader
+from .helpers import GtfsBinary, IdReference
+from .readers import (
+    AgencyReader, StopsReader, ShapesReader, CalendarReader,
+    RoutesReader, ItineraryReader, TripsReader,
+)
 
 
 def main():
