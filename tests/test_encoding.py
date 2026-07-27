@@ -44,31 +44,49 @@ class TestEncoding(unittest.TestCase):
 
         self.assertEqual(e.pack_bytes_rle(b''), b'')
         self.assertEqual(e.pack_bytes_rle(b'112'), b'\x001\xff2')
-        # TODO: tests for uints and strings, I'm bored.
+        self.assertEqual(e.pack_bytes_rle(b'1'*130+b'ab'*64),
+                         b'\x7f1\x801' + b'ab'*63 + b'a\xffb')
+        self.assertEqual(e.pack_uints_rle([2, 1, 1, 1, 19, 20]),
+                         b'\xff\x02\x01\x01\xfe\x13\x14')
+        self.assertEqual(e.pack_strings_rle(['abc', '12', '12']),
+                         b'\xff\x03abc\x00\x0212')
 
     def test_encode_decode(self):
         p1 = e.pack_string('abc')
         self.assertEqual(d.unpack_string(p1, 0), ('abc', len(p1)))
         self.assertEqual(d.unpack_string(b'1' + p1, 1), ('abc', len(p1)+1))
         p2 = e.pack_strings(['abc', '12'])
-        self.assertEqual(d.unpack_strings(p2, 0, 2), (['abc', '12'], len(p2)))
+        self.assertEqual(d.unpack_strings(b'1' + p2, 1, 2),
+                         (['abc', '12'], 1+len(p2)))
 
         bits = [True] * 4 + [False] * 4 + [True]
         p3 = e.pack_1bit(bits)
-        self.assertEqual(d.unpack_1bit(p3, 0, 9), (bits, len(p3)))
+        self.assertEqual(d.unpack_1bit(b'1'+p3, 1, 9), (bits, 1+len(p3)))
         bits2 = [3, 2, 1, 0, 2]
         p4 = e.pack_2bit(bits2)
-        self.assertEqual(d.unpack_2bit(p4, 0, 5), (bits2, len(p4)))
+        self.assertEqual(d.unpack_2bit(b'1'+p4, 1, 5), (bits2, 1+len(p4)))
 
         self.assertEqual(d.unpack_uint(e.pack_uint(0), 0), (0, 1))
-        self.assertEqual(d.unpack_uint(e.pack_uint(127), 0), (127, 1))
+        self.assertEqual(d.unpack_uint(b'1'+e.pack_uint(127), 1), (127, 2))
         self.assertEqual(d.unpack_uint(e.pack_uint(128), 0), (128, 2))
 
         self.assertEqual(d.unpack_sint(e.pack_sint(0), 0), (0, 1))
         self.assertEqual(d.unpack_sint(e.pack_sint(-1), 0), (-1, 1))
-        self.assertEqual(d.unpack_sint(e.pack_sint(1), 0), (1, 1))
+        self.assertEqual(d.unpack_sint(b'1'+e.pack_sint(1), 1), (1, 2))
         self.assertEqual(d.unpack_sint(e.pack_sint(64), 0), (64, 2))
         self.assertEqual(d.unpack_sint(e.pack_sint(-65), 0), (-65, 2))
+
+        p5 = e.pack_bytes_rle(b'112')
+        self.assertEqual(d.unpack_bytes_rle(b'1'+p5, 1, 3),
+                         (b'112', 1+len(p5)))
+        rle2 = [2, 1, 1, 1, 19, 20]
+        p6 = e.pack_uints_rle(rle2)
+        self.assertEqual(d.unpack_uints_rle(b'1'+p6, 1, len(rle2)),
+                         (rle2, 1+len(p6)))
+        rle3 = ['abc', '12', '12']
+        p7 = e.pack_strings_rle(rle3)
+        self.assertEqual(d.unpack_strings_rle(b'1'+p7, 1, len(rle3)),
+                         (rle3, 1+len(p7)))
 
 
 if __name__ == '__main__':

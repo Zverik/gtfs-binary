@@ -132,8 +132,10 @@ class GtfsBinary:
             for shape in chunk.shapes:
                 # new_last = (shape.latitudes[-1], shape.longitudes[-1])
                 for i in range(len(shape.latitudes) - 1, -1, -1):
-                    shape.latitudes[i] -= last_coord[0] if i == 0 else shape.latitudes[i-1]
-                    shape.longitudes[i] -= last_coord[1] if i == 0 else shape.longitudes[i-1]
+                    shape.latitudes[i] -= (last_coord[0] if i == 0
+                                           else shape.latitudes[i-1])
+                    shape.longitudes[i] -= (last_coord[1] if i == 0
+                                            else shape.longitudes[i-1])
                 # last_coord = new_last
             chunks.append(self.compress(chunk.SerializeToString()))
         metadata = g.ShapeMetadata(
@@ -144,13 +146,15 @@ class GtfsBinary:
     def pack_stops(self) -> tuple[bytes, bytes]:
         has_stations = any(s.parent_id for s in self.stops)
         routes_by_stops = self.routes_by_stops()
-        trie = Trie([s.name for s in self.stops])
+        # TODO: normalize unicode
+        trie = Trie([s.name.lower() for s in self.stops])
 
         chunks: list[tuple[bool, bytes]] = []
         geohash_xor = self.stops[0].geohash
         geohashes: list[int] = []
         stop_counts: list[int] = []
         last_geohash = 0
+        first_id = 0
         for geohash, ichunk in itertools.groupby(
                 self.stops, lambda s: s.geohash):
             if geohash == geohash_xor:
@@ -162,8 +166,9 @@ class GtfsBinary:
                 geohashes.append(geohash - last_geohash)
                 stop_counts.append(len(chunk))
                 chunks.append(self.compress_if_better(self.pack_stop_chunk(
-                    chunk, has_stations, routes_by_stops)))
+                    chunk, has_stations, first_id, routes_by_stops)))
                 last_geohash = geohash
+                first_id += len(chunk)
 
         metadata = g.StopMetadata(
             geohash_xor=geohash_xor,
@@ -176,7 +181,7 @@ class GtfsBinary:
         return metadata.SerializeToString(), b''.join(c[1] for c in chunks)
 
     def pack_stop_chunk(self, stops: list[g.StopsChunk], stations: bool,
-                        routes_by_stops: dict[int, list[int]],
+                        first_id: int, routes_by_stops: dict[int, list[int]],
                         ) -> bytes:
         result = b''
         result += e.pack_strings([s.gtfs_id for s in stops])
@@ -186,8 +191,9 @@ class GtfsBinary:
         result += e.pack_sints_delta([s.lat for s in stops])
         result += e.pack_sints_delta([s.lon for s in stops])
         result += e.pack_2bit([s.wheelchair for s in stops])
-        for s in stops:
-            result += e.pack_uints_delta(s.route_ids, add_len=True)
+        for i, s in enumerate(stops, first_id):
+            result += e.pack_uints_delta(
+                routes_by_stops.get(i, []), add_len=True)
         if stations:
             result += e.pack_1bit([s.is_station for s in stops])
             result += e.pack_uints_rle([s.parent_id + 1 for s in stops])
@@ -198,8 +204,9 @@ class GtfsBinary:
         for route_id, itins in self.itineraries.items():
             for i in itins:
                 for s in i.stops:
-                    result[route_id].add(s)
-        return {r: list(sorted(s)) for r, s in result.items()}
+                    result[s].add(route_id)
+
+        return {s: list(sorted(r)) for s, r in result.items()}
 
     def pack_calendar(self) -> tuple[bytes, bytes]:
         base_date = self.services[0].start_date
@@ -359,11 +366,13 @@ class GtfsBinary:
                          common_deltas: list[int]) -> bytes:
         result = b''
         result += e.pack_uints_delta([t[1].departures[0] for t in trips])
+        all_deltas: list[int] = []
         for t in trips:
-            result += e.pack_sints_delta([
+            all_deltas += [
                 p[1] - p[0] - common_deltas[i]
                 for i, p in enumerate(itertools.pairwise(t[1].departures))
-            ])
+            ]
+        result += e.pack_sints_delta(all_deltas)
 
         result += e.pack_strings([t[0] for t in trips])
         result += e.pack_1bit([t[1].approximate for t in trips])

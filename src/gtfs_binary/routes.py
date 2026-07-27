@@ -16,7 +16,8 @@ class RoutesReader:
                 route = g.Route(
                     agency_id=self.ids.agencies[row['agency_id']],
                     type=self.route_type_to_enum(row['route_type']),
-                    short_name=row.get('route_short_name') or row.get('route_long_name'),
+                    short_name=row.get('route_short_name'),
+                    long_name=row.get('route_long_name'),
                     desc=row.get('route_desc'),
                 )
                 if row.get('route_color') and row['route_color'].upper() != 'FFFFFF':

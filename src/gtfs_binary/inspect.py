@@ -56,11 +56,10 @@ def list_info(v: list[int], absolute: bool = False, sample: bool = True
         return {"list": list(v)}
 
     vv = v if not absolute else [abs(x) for x in v]
+    k = 'start' if len(v) <= 10 or not sample else 'sample'
     return {
-        'sample': (None if len(v) <= 10 or not sample
-                   else random.sample(v, 10)),
-        'start': (list(v)[:10] if len(v) <= 10 or not sample
-                  else None),
+        k: (list(v)[:10] if len(v) <= 10 or not sample
+            else random.sample(v, 10)),
         'count': len(v),
         'min': min(vv),
         'max': max(vv),
@@ -114,8 +113,9 @@ def print_stop_metadata(s: g.StopMetadata):
 
 
 def print_stop(f: BinaryIO, block: g.BlockMetadata, s: g.StopMetadata,
-               stop_id: int | None = None, metadata: bool = True):
-    if metadata:
+               stop_id: int | None = None):
+    if stop_id is None:
+        stop_id = random.randrange(sum(s.chunk_stop_counts))
         print(prep({
             'geohash_xor': s.geohash_xor,
             'geohashes': list_info(s.geohashes),
@@ -124,8 +124,7 @@ def print_stop(f: BinaryIO, block: g.BlockMetadata, s: g.StopMetadata,
             'chunk_lengths': list_info(s.chunk_lengths, True),
             'chunk_stop_counts': list_info(s.chunk_stop_counts),
         }))
-    if stop_id is None:
-        stop_id = random.randrange(sum(s.chunk_stop_counts))
+
     stop_chunk = 0
     chunk_first_stop_id = 0
     for i, ch in enumerate(s.chunk_stop_counts):
@@ -151,21 +150,19 @@ def print_stop(f: BinaryIO, block: g.BlockMetadata, s: g.StopMetadata,
     info['name'] = values[d]
     values, pos = dec.unpack_strings(chunk, pos, chunk_len)
     info['desc'] = values[d]
-    # TODO: lat lon do not work
-    values, pos = dec.unpack_sints(chunk, pos, chunk_len)
-    info['lat'] = values  # [d] / 100000
+    values, pos = dec.unpack_sints_delta(chunk, pos, chunk_len)
+    info['lat'] = values[d] / 100000
     values, pos = dec.unpack_sints_delta(chunk, pos, chunk_len)
     info['lon'] = values[d] / 100000
     values, pos = dec.unpack_2bit(chunk, pos, chunk_len)
-    # TODO: complete unpacking of 2bit data
+    info['wheelchair'] = g.Accessibility.Name(values[d])
     for i in range(chunk_len):
-        route_count, pos = dec.unpack_uint(chunk, pos)
-        route_ids, pos = dec.unpack_uints_delta(chunk, pos, route_count)
+        route_ids, pos = dec.unpack_uints_delta(chunk, pos, -1)
         if i == d:
             info['route_ids'] = route_ids
     if s.has_stations:
         values, pos = dec.unpack_1bit(chunk, pos, chunk_len)
-        # TODO: 1bit is not yet unpacked
+        info['is_station'] = values[d]
         values, pos = dec.unpack_uints_delta(chunk, pos, chunk_len)
         info['parent_id'] = None if values[d] == 0 else values[d] - 1
     print(prep(info))
@@ -224,6 +221,8 @@ def print_route(f: BinaryIO, block: g.BlockMetadata, r: g.RouteMetadata,
     print(prep({
         'route_id': route_id,
         'agency_id': route.agency_id,
+        'short_name': route.short_name,
+        'long_name': route.long_name,
         'type': g.RouteType.Name(route.type),
         'desc': route.desc or None,
         'color': hex(route.color),
@@ -231,27 +230,63 @@ def print_route(f: BinaryIO, block: g.BlockMetadata, r: g.RouteMetadata,
         'has_frequencies': route.has_frequencies,
     }))
     for itin in route.itineraries:
-        service_ids, _ = dec.unpack_uints_rle(itin.service_ids, 0, 9999)
+        service_ids = dec.unpack_uints_rle(itin.service_ids, 0, 9999)[0]
         print(prep({
             'shape_id': itin.shape_id,
             'stops': list(itin.stops),
             'headsigns': dec.unpack_strings_rle(
-                itin.headsigns, 0, len(itin.stops)),
-            'pickup_types': itin.pickup_types.hex(),  # TODO: unpack
-            'dropoff_types': itin.dropoff_types.hex(),  # TODO: unpack
+                itin.headsigns, 0, len(itin.stops))[0],
+            'pickup_types': dec.unpack_2bit(
+                itin.pickup_types, 0, len(itin.stops))[0],
+            'dropoff_types': dec.unpack_2bit(
+                itin.dropoff_types, 0, len(itin.stops))[0],
             'departure_deltas': list(itin.departure_deltas),
             'service_ids': list_info(service_ids),
             'trips_length': len(itin.trips),
         }))
-        print_trips(itin.trips, len(service_ids), 2)
+        print_trips(ARCH.decompress(itin.trips),
+                    len(service_ids), len(itin.stops), 2,
+                    route.has_frequencies, r.has_wheelchair_info,
+                    r.has_bike_info)
 
 
-def print_trips(data: bytes, count: int, toprint: int = 2):
+def print_trips(data: bytes, count: int, stops: int, toprint: int,
+                has_frequencies: bool, has_wheelchair: bool,
+                has_bikes: bool):
     if toprint > count:
         toprint = count
     if not toprint:
         return
-    pass  # TODO
+    info: dict[str, list[Any]] = {}
+    values: list[Any] = []
+
+    values, pos = dec.unpack_uints_delta(data, 0, count)
+    info['first_stop_departure'] = values[:toprint]
+    values, pos = dec.unpack_sints_delta(data, pos, count * (stops - 1))
+    info['departure_deltas'] = []
+    for i in range(toprint):
+        info['departure_deltas'].append(values[i*(stops-1):(i+1)*(stops-1)-1])
+
+    values, pos = dec.unpack_strings(data, pos, count)
+    info['gtfs_id'] = values[:toprint]
+    values, pos = dec.unpack_1bit(data, pos, count)
+    info['approximate'] = values[:toprint]
+
+    if has_frequencies:
+        values, pos = dec.unpack_uints(data, pos, count)
+        info['end_time'] = values[:toprint]
+        values, pos = dec.unpack_uints(data, pos, count)
+        info['interval'] = values[:toprint]
+    if has_wheelchair:
+        values, pos = dec.unpack_2bit(data, pos, count)
+        info['wheelchair'] = [g.Accessibility.Name(v)
+                              for v in values[:toprint]]
+    if has_bikes:
+        values, pos = dec.unpack_2bit(data, pos, count)
+        info['bikes'] = [g.Accessibility.Name(v)
+                         for v in values[:toprint]]
+    for i in range(toprint):
+        print(prep({k: v[i] for k, v in info.items()}))
 
 
 def read_data(f: BinaryIO, offset: int, length: int,

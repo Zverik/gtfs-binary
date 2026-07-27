@@ -10,6 +10,8 @@ def unpack_strings(data: bytes, start: int, count: int
                    ) -> tuple[list[str], int]:
     result = []
     for i in range(count):
+        if start >= len(data):
+            raise IndexError(f'Expected {count}, ran out at {len(result)}')
         s, start = unpack_string(data, start)
         result.append(s)
     return result, start
@@ -37,15 +39,13 @@ def unpack_2bit(data: bytes, start: int, count: int) -> tuple[list[int], int]:
 
 def unpack_uint(data: bytes, start: int) -> tuple[int, int]:
     result = 0
-    i = 0
     mult = 1
-    while data[i] & 0x80 > 0:
-        result += (data[i] & 0x7F) * mult
+    while data[start] & 0x80 > 0:
+        result += (data[start] & 0x7F) * mult
         mult <<= 7
-        i += 1
-    result += data[i] * mult
-    i += 1
-    return result, start + i
+        start += 1
+    result += data[start] * mult
+    return result, start + 1
 
 
 def uint_to_sint(value: int) -> int:
@@ -62,8 +62,10 @@ def unpack_uints(data: bytes, start: int, count: int
                  ) -> tuple[list[int], int]:
     if count < 0:
         count, start = unpack_uint(data, start)
-    result = []
+    result: list[int] = []
     for i in range(count):
+        if start >= len(data):
+            raise IndexError(f'Expected {count}, ran out at {len(result)}')
         value, start = unpack_uint(data, start)
         result.append(value)
     return result, start
@@ -85,6 +87,15 @@ def unpack_sints_delta(data: bytes, dstart: int, count: int, start: int = 0
                        ) -> tuple[list[int], int]:
     values, dstart = unpack_sints(data, dstart, count)
     return list(itertools.accumulate(values, initial=start))[1:], dstart
+
+
+def unpack_bytes_rle(data: bytes, start: int, count: int
+                     ) -> tuple[bytes, int]:
+    if count < 0:
+        count, start = unpack_uint(data, start)
+    result, start = unpack_rle(
+        data, start, count, lambda v, s: (v[s].to_bytes(), s + 1))
+    return b''.join(result), start
 
 
 def unpack_uints_rle(data: bytes, start: int, count: int
@@ -110,8 +121,9 @@ def unpack_rle(data: bytes, start: int, count: int, unpack_value,
     result = []
     while start < len(data) and len(result) < count:
         runlen = data[start]
-        if runlen < 0:
-            for i in range(-runlen):
+        start += 1
+        if runlen >= 0x80:
+            for i in range(256-runlen):
                 value, start = unpack_value(data, start)
                 result.append(value)
         else:

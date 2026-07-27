@@ -245,13 +245,14 @@ message Route {
   uint32 agency_id = 1;
   RouteType type = 2;
   string short_name = 3;
-  string desc = 4;
-  uint32 color = 5; // note: black (0x000000) and white (0xffffff) are swapped!
-  uint32 text_color = 6;
-  bool has_frequencies = 7;
+  string long_name = 4;
+  string desc = 5;
+  uint32 color = 6; // note: black (0x000000) and white (0xffffff) are swapped!
+  uint32 text_color = 7;
+  bool has_frequencies = 8;
 
   // No sorting order.
-  repeated Itinerary itineraries = 8;
+  repeated Itinerary itineraries = 9;
 }
 
 message Itinerary {
