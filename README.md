@@ -39,6 +39,21 @@ To inspect a feed contents:
     gtb_inspect feed.gtb -b stops
     gtb_inspect feed.gtb -b lookup -q stopname
 
+## Incomplete parts
+
+**Note that the format is to have significant changes, including renumbering
+of fields, until version 1.0 is published.**
+
+The tool has successfully processed 200 MB feeds, and the inspection tool
+shows queries are possible. But there are some feeds and some use-cases not
+yet addressed. What is left to do:
+
+* Normalize the unicode in building the stop name index.
+* Correctly process missing departure times (now it just throws an exception).
+* Fill in missing departure times based on `shape_dist_traveled` and stop locations.
+* Decide on negative length values for uncompressed files, and whether
+  `--raw` should be the default.
+
 ## Author and License
 
 The code was written by Ilya Zverev © 2026 and published under the terms
