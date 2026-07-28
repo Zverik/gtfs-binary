@@ -10,7 +10,7 @@ from functools import reduce
 from typing import BinaryIO, Any
 from google.protobuf.message import Message
 from . import gtfs_binary_pb2 as g
-from .helpers import decoding as dec
+from .helpers import decoding as dec, PackedTrie
 
 
 ARCH = zstandard.ZstdDecompressor()
@@ -170,6 +170,22 @@ def print_lookup_metadata(meta: g.LookupMetadata):
     print('Lookup: ' + prep({
         'stop_by_name': trie_info(meta.stop_by_name),
     }))
+
+
+def print_lookup(f: BinaryIO, meta: g.LookupMetadata,
+                 query: str,
+                 stop_block: g.BlockMetadata,
+                 stop_meta: g.StopMetadata):
+    if not query:
+        print_lookup_metadata(meta)
+    else:
+        p = PackedTrie(meta.stop_by_name)
+        stop_ids = p.find(query)
+        if not stop_ids:
+            print('Nothing was found')
+        else:
+            for stop_id in stop_ids:
+                print_stop(f, stop_block, stop_meta, stop_id)
 
 
 def print_calendar_metadata(c: g.CalendarMetadata):
@@ -365,8 +381,9 @@ def main():
     parser.add_argument('input', help='Source GTFS Binary file')
     parser.add_argument(
         '-b', '--block',
-        help='Block name (agencies/stops/shapes/calendar/routes)')
+        help='Block name (agencies/stops/lookup/shapes/calendar/routes)')
     parser.add_argument('--id', type=int, help='Object id to print')
+    parser.add_argument('-q', '--query', help='Query string for lookup')
     options = parser.parse_args()
 
     f = open(options.input, 'rb')
@@ -400,6 +417,12 @@ def main():
         print_shape(f, blocks[g.Block.B_SHAPES], shapes, options.id)
     elif options.block == 'stops':
         print_stop(f, blocks[g.Block.B_STOPS], stops, options.id)
+    elif options.block == 'lookup':
+        if not options.query:
+            print('--query parameter is required')
+        else:
+            print_lookup(f, lookup, options.query,
+                         blocks[g.Block.B_STOPS], stops)
     elif options.block == 'calendar':
         print_calendar(f, blocks[g.Block.B_CALENDAR], calendar, options.id)
     elif options.block == 'routes':
