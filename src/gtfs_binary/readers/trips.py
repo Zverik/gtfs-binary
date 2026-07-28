@@ -9,6 +9,7 @@ class StopTime:
     seq_id: int
     departure: int
     approximate: bool
+    dist_traveled: float
 
 
 class TripsReader:
@@ -44,14 +45,20 @@ class TripsReader:
 
             cur_times: list[StopTime] = []
             for row in rows:
-                arrival = self.parse_time(row['arrival_time']) or 0
+                arrival = self.parse_time(row['arrival_time'])
                 departure = self.parse_time(row['departure_time']) or arrival
+                if departure is None:
+                    raise ValueError(
+                        'Neither arrival nor departure is specified '
+                        f'for a stop in trip {trip_id}')
                 departure = int(departure / 5)
+                dist = float(row.get('dist_traveled', '0'))
 
                 cur_times.append(StopTime(
                     seq_id=int(row['stop_sequence']),
                     departure=departure,
                     approximate=row.get('timepoint') == '0',
+                    dist_traveled=dist,
                 ))
             cur_times.sort(key=lambda t: t.seq_id)
             trips[trip_id].departures = [t.departure for t in cur_times]

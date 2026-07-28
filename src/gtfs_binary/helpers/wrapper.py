@@ -130,15 +130,12 @@ class GtfsBinary:
         chunks: list[bytes] = []
         for shapes in itertools.batched(self.shapes, chunk_size):
             chunk = g.ShapeChunk(shapes=shapes)
-            last_coord = (0, 0)
             for shape in chunk.shapes:
-                # new_last = (shape.latitudes[-1], shape.longitudes[-1])
                 for i in range(len(shape.latitudes) - 1, -1, -1):
-                    shape.latitudes[i] -= (last_coord[0] if i == 0
+                    shape.latitudes[i] -= (0 if i == 0
                                            else shape.latitudes[i-1])
-                    shape.longitudes[i] -= (last_coord[1] if i == 0
+                    shape.longitudes[i] -= (0 if i == 0
                                             else shape.longitudes[i-1])
-                # last_coord = new_last
             chunks.append(self.compress(chunk.SerializeToString()))
         metadata = g.ShapeMetadata(
             chunk_size=chunk_size,
@@ -359,8 +356,8 @@ class GtfsBinary:
                     has_bike, common_deltas)
 
                 route.itineraries.append(g.Itinerary(
-                    shape_id=itin.shape_id,
-                    stops=itin.stops,
+                    shape_id=0 if not itin.shape_id else itin.shape_id + 1,
+                    stop_ids=itin.stops,
                     headsigns=e.pack_strings_rle(itin.headsigns),
                     pickup_types=e.pack_2bit(itin.pickup_types),
                     dropoff_types=e.pack_2bit(itin.dropoff_types),

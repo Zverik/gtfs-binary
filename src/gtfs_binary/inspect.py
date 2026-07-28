@@ -295,21 +295,22 @@ def print_route(f: BinaryIO, block: g.BlockMetadata, r: g.RouteMetadata,
     for itin in route.itineraries:
         print()
         service_ids = dec.unpack_uints_rle(itin.service_ids, 0, 9999)[0]
+        stop_count = len(itin.stop_ids)
         print(prep({
             'shape_id': itin.shape_id,
-            'stops': list(itin.stops),
+            'stop_ids': list(itin.stop_ids),
             'headsigns': dec.unpack_strings_rle(
-                itin.headsigns, 0, len(itin.stops))[0],
+                itin.headsigns, 0, stop_count)[0],
             'pickup_types': dec.unpack_2bit(
-                itin.pickup_types, 0, len(itin.stops))[0],
+                itin.pickup_types, 0, stop_count)[0],
             'dropoff_types': dec.unpack_2bit(
-                itin.dropoff_types, 0, len(itin.stops))[0],
+                itin.dropoff_types, 0, stop_count)[0],
             'departure_deltas': list(itin.departure_deltas),
             'service_ids': list_info(service_ids),
             'trips_length': len(itin.trips),
         }))
-        print_trips(ARCH.decompress(itin.trips),
-                    len(service_ids), len(itin.stops), 2,
+        print_trips(itin.trips,
+                    len(service_ids), stop_count, 2,
                     route.has_frequencies, r.has_wheelchair_info,
                     r.has_bike_info)
 

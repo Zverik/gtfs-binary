@@ -109,7 +109,6 @@ message Shape {
   // Numbers multiplied by 100000 (1e5) and rounded.
   // Mind the accumulated rounding error!
   // Each number is the difference with the last.
-  // First is difference with 0 or the last from the same chunk.
   repeated sint32 longitudes = 1;
   repeated sint32 latitudes = 2;
 }
@@ -119,7 +118,7 @@ message Shape {
 // For stops within stations, the station geohash is used for chunking.
 message StopMetadata {
   uint32 geohash_xor = 1;
-  // Those geohashes should be XOR-ed with geohash_xor.
+  // Delta-coded geohashes. Should be XOR-ed with geohash_xor.
   repeated uint32 geohashes = 2;
   // In bytes. Negative if not compressed (but everything else is).
   repeated sint32 chunk_lengths = 3;
@@ -134,8 +133,8 @@ message StopMetadata {
 // for every stop in the chunk.
 //
 // Even if packing everything in a single field, having lengths in those
-// would mean adding 24 bytes to every stop,
-// which might mean over 2 MB for a feed. Hence we process the binary
+// would mean adding 30 bytes to every stop,
+// which might mean over 3 MB for a feed. Hence we process the binary
 // data directly. This message is not used, but demonstrates an order and
 // types of fields.
 message StopsChunk {
@@ -143,16 +142,11 @@ message StopsChunk {
   string code = 2; // same
   string name = 3; // same
   string desc = 4; // same
-  sint32 lat = 5; // multiplied by 100000 (1e5), diff from the last
+  sint32 lat = 5; // multiplied by 100000 (1e5), delta-coded
   sint32 lon = 6; // same
-  // This field is bit-packed (2 bits each) + RLE.
-  // How it works: we pack first 2*4 values bit-wise top-to-bottom:
-  // 0b00112233. If they are all the same, we write the repeating byte:
-  // 0b1xxxxxyy, where x is repeat count minus 4 (0=4 to 31=35), y is the value.
-  // If not, we write a byte with a number of unpacked _bytes_ (1 to 127), each
-  // containing four values. Algorithm TODO.
+  // This field is bit-packed (2 bits each, 0b00112233 for 0,1,2,3).
   Accessibility wheelchair = 7;
-  repeated uint32 route_ids = 8; // uint32 length, uint32 first, delta uint32 following
+  repeated uint32 route_ids = 8; // uint32 length, then uints delta-coded
 
   // Those two are skipped if has_stations is false.
   bool is_station = 9; // we skip all exit/node/boarding stops, bit-packed
@@ -168,6 +162,7 @@ enum Accessibility {
 }
 
 
+// Unlike other blocks, this one is completely contained in the metadata.
 message LookupMetadata {
   StopLookup stop_by_name = 1;
 }
@@ -193,6 +188,7 @@ message StopLookup {
 
 message CalendarMetadata {
   // A number as YYMMDD: e.g. 240821.
+  // The year is ±5 years from today, error otherwise.
   // All service dates use offsets in days from it.
   uint32 base_date = 1;
 
@@ -201,10 +197,7 @@ message CalendarMetadata {
   // by start_date, so every number in this list is positive.
   repeated uint32 start_dates = 2;
 
-  // End dates for every service. Options:
-  // 1. Offset from start_date.
-  // 2. Offset from start_date + delta from previous (signed).
-  // 3. Like start_dates, base_date + delta-encoded (signed).
+  // End dates for every service, difference with start_date.
   repeated uint32 end_dates = 3;
 
   // Bit-encoded weekdays for every service, sequentially.
@@ -226,7 +219,7 @@ message CalendarMetadata {
 // These follow the CalendarMetadata, not attached to messages.
 message CalendarMonth {
   // Delta coded, first date is offset from the months start.
-  // Cut on the last value greater than one.
+  // Default is [0, 1, 1, 1, ...]. Cut on the last non-default value.
   repeated uint32 date_offsets = 1;
   repeated CalendarDate dates = 2;
 }
@@ -259,21 +252,21 @@ message Route {
   string desc = 5;
   uint32 color = 6; // note: black (0x000000) and white (0xffffff) are swapped!
   uint32 text_color = 7;
-  bool has_frequencies = 8;
+  bool has_frequencies = 8; // whether frequencies in trips are present
 
   // No sorting order.
   repeated Itinerary itineraries = 9;
 }
 
 message Itinerary {
-  uint32 shape_id = 1;
-  repeated uint32 stops = 2;
+  uint32 shape_id = 1; // plus one, so zero means no shape
+  repeated uint32 stop_ids = 2;
   bytes headsigns = 3; // strings RLE
-  bytes pickup_types = 4; // RLE bit-packed (2 bit each)
+  bytes pickup_types = 4; // bit-packed (2 bit each)
   bytes dropoff_types = 5; // same
 
   // The most common deltas between stop departures for trips.
-  // Granularity is 5 seconds.
+  // Granularity is 5 seconds, rounded down.
   repeated uint32 departure_deltas = 6;
 
   bytes service_ids = 7; // instead of lengths we pack the single remaning mandatory field, uint RLE
@@ -291,9 +284,9 @@ message TripsChunk {
 
   // Differences from itinerary.depature_deltas. Granularity is 5 seconds.
   // Count is (number of trips) × (number of stops - 1)
-  // 0 is missing value, positive numbers should be decreased by 1.
+  // 0 is missing value, positive numbers should be increased by 1.
   // Mind the accumulated rounding error and the +1!
-  // RLE: 1xxxxxxx for x+2 repeats, then a sint32, or 0xxxxxx for x random sint32.
+  // The entire list is delta-coded.
   repeated sint32 departure_deltas = 2;
 
   // (we skip arrivals because they matter less)
@@ -311,7 +304,7 @@ message TripsChunk {
   uint32 interval = 6;
 
   // Present only when RouteMetadata.has_wheelchair/bikes are true
-  Accessibility wheelchair = 7; // bit-packed (2 bits each), RLE-encoded (see stops)
+  Accessibility wheelchair = 7; // bit-packed (2 bits each)
   Accessibility bikes = 8; // same
 }
 
@@ -343,4 +336,3 @@ enum RouteType {
   T_TAXI = 24; // all 15xx except 1501
   T_MISC = 25; // 17xx
 }
-
