@@ -9,8 +9,7 @@ from datetime import date, timedelta
 from functools import reduce
 from typing import BinaryIO, Any
 from google.protobuf.message import Message
-from . import gtfs_binary_pb2 as g
-from .helpers import decoding as dec, PackedTrie
+from .helpers import decoding as dec, PackedTrie, g
 
 
 ARCH = zstandard.ZstdDecompressor()
@@ -37,7 +36,7 @@ def print_footer(f: g.Footer):
         }))
 
 
-def print_agencies(f: g.Footer):
+def print_agencies(f: g.Agencies):
     for a in f.agencies:
         print(prep({
             'name': a.name,
@@ -399,6 +398,7 @@ def main():
     footer.ParseFromString(f.read(footer_len))
 
     blocks = {b.block: b for b in footer.blocks}
+    agencies = read_block(f, g.Agencies(), blocks[g.Block.B_AGENCIES])
     shapes = read_block(f, g.ShapeMetadata(), blocks[g.Block.B_SHAPES])
     stops = read_block(f, g.StopMetadata(), blocks[g.Block.B_STOPS])
     lookup = read_block(f, g.LookupMetadata(), blocks[g.Block.B_LOOKUP])
@@ -413,7 +413,7 @@ def main():
         print_calendar_metadata(calendar)
         print_route_metadata(routes)
     elif options.block == 'agencies':
-        print_agencies(footer)
+        print_agencies(agencies)
     elif options.block == 'shapes':
         print_shape(f, blocks[g.Block.B_SHAPES], shapes, options.id)
     elif options.block == 'stops':

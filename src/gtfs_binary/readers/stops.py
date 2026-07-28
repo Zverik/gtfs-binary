@@ -17,6 +17,9 @@ class StopsReader:
         parents: dict[str, str] = {}
         with self.z.open_table('stops') as f:
             for row, stop_id in self.z.table_reader(f, 'stop_id'):
+                parent_id = row.get('parent_station')
+                if parent_id:
+                    parents[stop_id] = parent_id
                 loc_type = row.get('location_type', '')
                 if loc_type and int(loc_type) > 1:
                     continue
@@ -37,9 +40,6 @@ class StopsReader:
                     float(stop.lat) / COORD_SCALE,
                     float(stop.lon) / COORD_SCALE, 24)
                 result.append((stop_id, stop))
-                parent_id = row.get('parent_station')
-                if parent_id:
-                    parents[stop_id] = parent_id
 
         # Every geohash except the first is XOR-ed with the first.
         self.geohash_xor = result[0][1].geohash
@@ -49,6 +49,17 @@ class StopsReader:
         result[0][1].geohash ^= self.geohash_xor
 
         self.ids.stops = {s[0]: i for i, s in enumerate(result)}
+
+        # Set parent ids, because only now we know their numeric values.
+        for stop_id, stop in result:
+            if stop_id in parents:
+                stop.parent_id = self.ids.stops[stop_id]
+
+        # Redirect boarding points and entrances to parent stations.
+        for stop_id, parent_id in parents.items():
+            if stop_id not in self.ids.stops:
+                self.ids.stops[stop_id] = self.ids.stops[parent_id]
+
         self.stops = [s[1] for s in result]
         return self.stops
 

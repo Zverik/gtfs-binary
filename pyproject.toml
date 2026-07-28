@@ -32,3 +32,4 @@ classifiers = [
 [project.scripts]
 gtfs_binary = "gtfs_binary.pack:main"
 gtb_inspect = "gtfs_binary.inspect:main"
+gtb_compress = "gtfs_binary.compress:main"

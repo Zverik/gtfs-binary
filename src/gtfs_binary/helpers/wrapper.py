@@ -97,6 +97,7 @@ class GtfsBinary:
 
         fileobj.write(b'GTB\n')
         self.compressed = compress
+        write_block(*self.pack_agencies(), g.Block.B_AGENCIES)
         write_block(*self.pack_shapes(), g.Block.B_SHAPES)
         write_block(*self.pack_stops(), g.Block.B_STOPS)
         write_block(*self.pack_lookup(), g.Block.B_LOOKUP)
@@ -107,7 +108,6 @@ class GtfsBinary:
             date=self.date,
             original_url=self.original_url,
             compressed=compress,
-            agencies=self.agencies,
             blocks=blocks,
         ).SerializeToString()
         fileobj.write(footer)
@@ -125,6 +125,10 @@ class GtfsBinary:
         if len(cmp) < len(chunk):
             return True, cmp
         return False, chunk
+
+    def pack_agencies(self) -> tuple[bytes, bytes]:
+        result = g.Agencies(agencies=self.agencies)
+        return result.SerializeToString(), b''
 
     def pack_shapes(self, chunk_size: int = 10) -> tuple[bytes, bytes]:
         chunks: list[bytes] = []
@@ -253,6 +257,9 @@ class GtfsBinary:
             for d in s.except_days:
                 if d >= base_date:
                     days[d].exception_in.append(service_id)
+
+        if not days:
+            return 2, []
 
         # Delta-encode services in days.
         for day in days.values():

@@ -40,12 +40,19 @@ class CalendarReader:
                 for row, service_id in self.z.table_reader(f, 'service_id'):
                     excluded = row['exception_type'] == '2'
                     day = self.int_to_date(row['date'])
-                    if day < yesterday or day > inayear:
-                        continue
                     if excluded:
                         if service_id in result:
                             result[service_id].except_days.append(day)
                     else:
+                        if day < yesterday or day > inayear:
+                            if service_id not in result:
+                                # Because of this check we can lose services.
+                                result[service_id] = CalendarService(
+                                    start_date=yesterday,
+                                    end_date=yesterday,
+                                    weekdays=[False] * 7,
+                                )
+                            continue
                         if service_id not in result:
                             result[service_id] = CalendarService(
                                 start_date=day,
