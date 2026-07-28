@@ -106,7 +106,6 @@ def print_shape(f: BinaryIO, block: g.BlockMetadata, s: g.ShapeMetadata,
 def print_stop_metadata(s: g.StopMetadata):
     print('Stops: ' + prep({
         'has_stations': s.has_stations,
-        'lookup_size': len(s.name_lookup.SerializeToString()),
         'chunk_lengths': list_info(s.chunk_lengths, True),
         'chunk_stop_counts': list_info(s.chunk_stop_counts),
     }))
@@ -120,7 +119,6 @@ def print_stop(f: BinaryIO, block: g.BlockMetadata, s: g.StopMetadata,
             'geohash_xor': s.geohash_xor,
             'geohashes': list_info(s.geohashes),
             'has_stations': s.has_stations,
-            'name_lookup': trie_info(s.name_lookup),
             'chunk_lengths': list_info(s.chunk_lengths, True),
             'chunk_stop_counts': list_info(s.chunk_stop_counts),
         }))
@@ -166,6 +164,12 @@ def print_stop(f: BinaryIO, block: g.BlockMetadata, s: g.StopMetadata,
         values, pos = dec.unpack_uints_delta(chunk, pos, chunk_len)
         info['parent_id'] = None if values[d] == 0 else values[d] - 1
     print(prep(info))
+
+
+def print_lookup_metadata(meta: g.LookupMetadata):
+    print('Lookup: ' + prep({
+        'stop_by_name': trie_info(meta.stop_by_name),
+    }))
 
 
 def print_calendar_metadata(c: g.CalendarMetadata):
@@ -379,6 +383,7 @@ def main():
     blocks = {b.block: b for b in footer.blocks}
     shapes = read_block(f, g.ShapeMetadata(), blocks[g.Block.B_SHAPES])
     stops = read_block(f, g.StopMetadata(), blocks[g.Block.B_STOPS])
+    lookup = read_block(f, g.LookupMetadata(), blocks[g.Block.B_LOOKUP])
     calendar = read_block(f, g.CalendarMetadata(), blocks[g.Block.B_CALENDAR])
     routes = read_block(f, g.RouteMetadata(), blocks[g.Block.B_ROUTES])
 
@@ -386,6 +391,7 @@ def main():
         print_footer(footer)
         print_shape_metadata(shapes)
         print_stop_metadata(stops)
+        print_lookup_metadata(lookup)
         print_calendar_metadata(calendar)
         print_route_metadata(routes)
     elif options.block == 'agencies':

@@ -82,6 +82,7 @@ enum Block {
   B_CALENDAR = 2;
   B_ROUTES = 3;
   B_SHAPES = 4;
+  B_LOOKUP = 5;
 }
 
 
@@ -126,25 +127,6 @@ message StopMetadata {
   repeated uint32 chunk_stop_counts = 4;
   // If false, is_station and parent_id in chunks are skipped.
   bool has_stations = 5;
-
-  StopLookup name_lookup = 6;
-}
-
-// Encodes a radix trie structure.
-message StopLookup {
-  // Edges reference this blob.
-  bytes string_blob = 1;
-  // Nodes reference stop ids, which are ordered for convenient lookup.
-  repeated uint32 stop_ids = 2;
-  // Nodes in the graph, split into columns to compress better.
-  repeated uint32 node_edge_offset = 3; // delta-coded
-  repeated uint32 node_edge_count = 4;
-  repeated uint32 node_stop_offset = 5; // delta-coded
-  repeated uint32 node_stop_count = 6;
-  // Edges in the graph.
-  repeated uint32 edge_label_offset = 7;
-  repeated uint32 edge_label_length = 8;
-  repeated uint32 edge_node_index = 9;
 }
 
 // Column-oriented set of stops. Which means, it's a set
@@ -183,6 +165,29 @@ enum Accessibility {
   A_UNKNOWN = 0;
   A_SOME = 1;
   A_NO = 2;
+}
+
+
+message LookupMetadata {
+  StopLookup stop_by_name = 1;
+}
+
+
+// Encodes a radix trie structure.
+message StopLookup {
+  // Edges reference this blob.
+  bytes string_blob = 1;
+  // Nodes reference stop ids, which are ordered for convenient lookup.
+  repeated uint32 stop_ids = 2;
+  // Nodes in the graph, split into columns to compress better.
+  repeated uint32 node_edge_offset = 3; // delta-coded
+  repeated uint32 node_edge_count = 4;
+  repeated uint32 node_stop_offset = 5; // delta-coded
+  repeated uint32 node_stop_count = 6;
+  // Edges in the graph.
+  repeated uint32 edge_label_offset = 7;
+  repeated uint32 edge_label_length = 8;
+  repeated uint32 edge_node_index = 9;
 }
 
 

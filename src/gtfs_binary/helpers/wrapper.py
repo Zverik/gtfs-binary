@@ -85,7 +85,8 @@ class GtfsBinary:
             nonlocal pos, blocks
             compr = self.compress_if_better(metadata)
             fileobj.write(compr[1])
-            fileobj.write(data)
+            if data:
+                fileobj.write(data)
             blocks.append(g.BlockMetadata(
                 block=block,
                 offset=pos,
@@ -98,6 +99,7 @@ class GtfsBinary:
         self.compressed = compress
         write_block(*self.pack_shapes(), g.Block.B_SHAPES)
         write_block(*self.pack_stops(), g.Block.B_STOPS)
+        write_block(*self.pack_lookup(), g.Block.B_LOOKUP)
         write_block(*self.pack_calendar(), g.Block.B_CALENDAR)
         write_block(*self.pack_routes(), g.Block.B_ROUTES)
         footer = g.Footer(
@@ -143,11 +145,17 @@ class GtfsBinary:
             chunk_lengths=[len(c) for c in chunks])
         return metadata.SerializeToString(), b''.join(chunks)
 
+    def pack_lookup(self) -> tuple[bytes, bytes]:
+        # TODO: normalize unicode
+        names = Trie([s.name.lower() for s in self.stops])
+        metadata = g.LookupMetadata(
+            stop_by_name=pack_trie(names),
+        )
+        return metadata.SerializeToString(), b''
+
     def pack_stops(self) -> tuple[bytes, bytes]:
         has_stations = any(s.parent_id for s in self.stops)
         routes_by_stops = self.routes_by_stops()
-        # TODO: normalize unicode
-        trie = Trie([s.name.lower() for s in self.stops])
 
         chunks: list[tuple[bool, bytes]] = []
         geohash_xor = self.stops[0].geohash
@@ -176,7 +184,6 @@ class GtfsBinary:
             chunk_lengths=[len(c[1]) * (1 if c[0] else -1) for c in chunks],
             chunk_stop_counts=stop_counts,
             has_stations=has_stations,
-            name_lookup=pack_trie(trie),
         )
         return metadata.SerializeToString(), b''.join(c[1] for c in chunks)
 
@@ -360,7 +367,7 @@ class GtfsBinary:
                     departure_deltas=common_deltas,
                     service_ids=e.pack_uints_rle(
                         [t[1].service_id for t in trips]),
-                    trips=self.compress(trips_chunk),
+                    trips=trips_chunk,
                 ))
             chunks.append(self.compress(route.SerializeToString()))
 
