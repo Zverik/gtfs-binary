@@ -47,11 +47,7 @@ class TripsReader:
             for row in rows:
                 arrival = self.parse_time(row['arrival_time'])
                 departure = self.parse_time(row['departure_time']) or arrival
-                if departure is None:
-                    raise ValueError(
-                        'Neither arrival nor departure is specified '
-                        f'for a stop in trip {trip_id}')
-                departure = int(departure / 5)
+                departure = -1 if departure is None else int(departure / 5)
                 dist = float(row.get('dist_traveled', '0'))
 
                 cur_times.append(StopTime(
@@ -61,6 +57,10 @@ class TripsReader:
                     dist_traveled=dist,
                 ))
             cur_times.sort(key=lambda t: t.seq_id)
+            if cur_times[0].departure < 0:
+                raise ValueError(
+                    'Neither arrival nor departure are specified '
+                    f'for the first stop in trip {trip_id}')
             trips[trip_id].departures = [t.departure for t in cur_times]
             trips[trip_id].approximate = any(t.approximate for t in cur_times)
 

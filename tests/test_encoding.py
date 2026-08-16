@@ -10,6 +10,11 @@ class TestEncoding(unittest.TestCase):
         self.assertEqual(
             e.pack_strings(['abc', '12']), b'\x03abc\x0212')
         self.assertEqual(
+            e.pack_strings_common(['abc', '12']), b'\x03abc\x0212')
+        self.assertEqual(
+            e.pack_strings_common(['abc', 'abd']), b'\x03abc\x81\x01d')
+
+        self.assertEqual(
             e.pack_1bit([True] * 4 + [False] * 4 + [True]),
             b'\xF0\x80')
         self.assertEqual(
@@ -58,6 +63,11 @@ class TestEncoding(unittest.TestCase):
         p2 = e.pack_strings(['abc', '12'])
         self.assertEqual(d.unpack_strings(b'1' + p2, 1, 2),
                          (['abc', '12'], 1+len(p2)))
+
+        s1 = ['abc', 'abdc', '12']
+        ps1 = e.pack_strings_common(s1)
+        self.assertEqual(
+            d.unpack_strings_common(b'1'+ps1, 1, len(s1)), (s1, 1+len(ps1)))
 
         bits = [True] * 4 + [False] * 4 + [True]
         p3 = e.pack_1bit(bits)

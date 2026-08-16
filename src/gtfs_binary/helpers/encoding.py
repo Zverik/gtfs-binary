@@ -1,4 +1,5 @@
 import itertools
+from typing import Any
 
 
 def pack_string(s: str) -> bytes:
@@ -11,6 +12,32 @@ def pack_string(s: str) -> bytes:
 
 def pack_strings(values: list[str]) -> bytes:
     return b''.join(pack_string(s) for s in values)
+
+
+def pack_strings_common(values: list[str]) -> bytes:
+    result = pack_string(values[0])
+    last = result
+    for i in range(1, len(values)):
+        coded = pack_string(values[i])
+        coded_len = len(coded)
+        common_len = 1
+        while (common_len < coded_len and
+               common_len < 128 and
+               coded[common_len] == last[common_len]):
+            common_len += 1
+
+        if common_len >= 3 and coded_len - common_len < 128:
+            # common prefix: (0x80+prefix_len), (suffix len), (suffix)
+            result += ((common_len - 2 + 0x80).to_bytes() +
+                       (coded_len - common_len).to_bytes() +
+                       coded[common_len:])
+        else:
+            # just append the string
+            if len(coded) >= 128:
+                result += b'\x80'
+            result += coded
+        last = coded
+    return result
 
 
 def pack_1bit(values: list[bool]) -> bytes:
@@ -97,6 +124,11 @@ def pack_uints_rle(values: list[int], add_len: bool = False) -> bytes:
     return pack_rle(values, lambda v: pack_uint(v), add_len=add_len)
 
 
+def pack_sints_rle(values: list[int], add_len: bool = False) -> bytes:
+    """Same algorithm as ORC RLEv1."""
+    return pack_rle(values, lambda v: pack_sint(v), add_len=add_len)
+
+
 def pack_bytes_rle(values: bytes, add_len: bool = False) -> bytes:
     return pack_rle(values, lambda v: v.to_bytes(), add_len=add_len)
 
@@ -105,7 +137,7 @@ def pack_rle(values, value_to_bytes, min_run: int = 2,
              add_len: bool = False) -> bytes:
     """Same algorithm as ORC."""
     result = b'' if not add_len else pack_uint(len(values))
-    rnd = []
+    rnd: list[Any] = []
     i = 0
     while i < len(values):
         if (i + min_run - 1 < len(values) and

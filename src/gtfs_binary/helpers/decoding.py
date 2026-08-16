@@ -1,4 +1,5 @@
 import itertools
+from typing import Any
 
 
 def unpack_string(data: bytes, start: int) -> tuple[str, int]:
@@ -8,7 +9,7 @@ def unpack_string(data: bytes, start: int) -> tuple[str, int]:
 
 def unpack_strings(data: bytes, start: int, count: int
                    ) -> tuple[list[str], int]:
-    result = []
+    result: list[str] = []
     for i in range(count):
         if start >= len(data):
             raise IndexError(f'Expected {count}, ran out at {len(result)}')
@@ -17,9 +18,43 @@ def unpack_strings(data: bytes, start: int, count: int
     return result, start
 
 
+def unpack_strings_common(data: bytes, start: int, count: int
+                          ) -> tuple[list[str], int]:
+    firstlen = data[start]
+    last = data[start+1:start+1+firstlen]
+    start += firstlen + 1
+    result: list[str] = [last.decode()]
+    for i in range(1, count):
+        if start >= len(data):
+            raise IndexError(f'Expected {count}, ran out at {len(result)}')
+        len_flag = data[start]
+        start += 1
+        if len_flag > 0x80:
+            # common prefix
+            suffix_len = data[start]
+            suffix = data[start+1:start+1+suffix_len]
+            last = last[:len_flag - 0x7F] + suffix
+            start += suffix_len + 1
+            result.append(last.decode())
+        elif len_flag == 0x80:
+            # special case of a long value
+            value_len = data[start]
+            last = data[start+1:start+1+value_len]
+            start += value_len + 1
+            result.append(last.decode())
+        else:
+            # full string
+            last = data[start:start+len_flag]
+            start += len_flag
+            result.append(last.decode())
+    return result, start
+
+
 def unpack_1bit(data: bytes, start: int, count: int
                 ) -> tuple[list[bool], int]:
     result: list[bool] = []
+    if not data:
+        return result, start
     for byte in range((count + 7) // 8):
         cnt = min(8, count - byte * 8)
         result += [data[start] & (1 << i) != 0 for i in range(7, 7-cnt, -1)]
@@ -29,6 +64,8 @@ def unpack_1bit(data: bytes, start: int, count: int
 
 def unpack_2bit(data: bytes, start: int, count: int) -> tuple[list[int], int]:
     result: list[int] = []
+    if not data:
+        return result, start
     for byte in range((count + 3) // 4):
         cnt = min(4, count - byte * 4)
         result += [(data[start] >> i) & 3
@@ -100,25 +137,27 @@ def unpack_bytes_rle(data: bytes, start: int, count: int
 
 def unpack_uints_rle(data: bytes, start: int, count: int
                      ) -> tuple[list[int], int]:
-    if count < 0:
-        count, start = unpack_uint(data, start)
-    result, start = unpack_rle(
+    return unpack_rle(
         data, start, count, lambda v, s: unpack_uint(v, s))
-    return result, start
+
+
+def unpack_sints_rle(data: bytes, start: int, count: int
+                     ) -> tuple[list[int], int]:
+    return unpack_rle(
+        data, start, count, lambda v, s: unpack_sint(v, s))
 
 
 def unpack_strings_rle(data: bytes, start: int, count: int
                        ) -> tuple[list[str], int]:
-    if count < 0:
-        count, start = unpack_uint(data, start)
-    result, start = unpack_rle(
+    return unpack_rle(
         data, start, count, lambda v, s: unpack_string(v, s))
-    return result, start
 
 
 def unpack_rle(data: bytes, start: int, count: int, unpack_value,
                min_run: int = 2) -> tuple[list, int]:
-    result = []
+    if count < 0:
+        count, start = unpack_uint(data, start)
+    result: list[Any] = []
     while start < len(data) and len(result) < count:
         runlen = data[start]
         start += 1

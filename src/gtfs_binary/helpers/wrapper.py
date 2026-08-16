@@ -6,6 +6,7 @@ from typing import BinaryIO
 from datetime import date, timedelta
 from collections import defaultdict
 from statistics import mode
+from functools import cached_property
 from .. import gtfs_binary_pb2 as g
 from . import encoding as e
 from .trie import Trie, pack_trie
@@ -34,6 +35,20 @@ class Trip:
         self.interval = end_time
         self.wheelchair = wheelchair
         self.bikes = bikes
+
+    @cached_property
+    def departure_deltas(self) -> list[int]:
+        result: list[int] = []
+        last_value = self.departures[0]
+        for i in range(1, len(self.departures)):
+            d = self.departures[i]
+            if d < 0:
+                result.append(0)
+            else:
+                delta = d - last_value
+                last_value = d
+                result.append(delta if delta < 0 else delta + 1)
+        return result
 
 
 class Itinerary:
@@ -352,22 +367,35 @@ class GtfsBinary:
                     route.has_frequencies = True
                     break
 
+            headsigns: list[str] = list(set(itertools.chain.from_iterable(
+                itin.headsigns for itin in self.itineraries[route_id])))
+            hs_lookup = {h: i for i, h in enumerate(headsigns)}
+            route.headsigns.extend(headsigns)
+
             for itin_id, itin in enumerate(self.itineraries[route_id]):
                 trips = route_trips[itin_id]
                 trips.sort(key=lambda t: t[1].departures[0])
                 common_deltas = self.calculate_medians(
-                    [t[1].departures for t in trips])
+                    [t[1].departure_deltas for t in trips])
 
                 trips_chunk = self.pack_trips_chunk(
                     trips, route.has_frequencies, has_wheelchair,
                     has_bike, common_deltas)
 
+                std_pickups = all(p == g.PickupDropoff.PD_YES
+                                  for p in itin.pickup_types[:-1])
+                std_dropoffs = all(p == g.PickupDropoff.PD_YES
+                                   for p in itin.pickup_types[1:])
+
                 route.itineraries.append(g.Itinerary(
                     shape_id=0 if not itin.shape_id else itin.shape_id + 1,
                     stop_ids=itin.stops,
-                    headsigns=e.pack_strings_rle(itin.headsigns),
-                    pickup_types=e.pack_2bit(itin.pickup_types),
-                    dropoff_types=e.pack_2bit(itin.dropoff_types),
+                    headsigns=e.pack_uints_rle(
+                        [hs_lookup[h] for h in itin.headsigns]),
+                    pickup_types=None if std_pickups
+                    else e.pack_2bit(itin.pickup_types),
+                    dropoff_types=None if std_dropoffs
+                    else e.pack_2bit(itin.dropoff_types),
                     departure_deltas=common_deltas,
                     service_ids=e.pack_uints_rle(
                         [t[1].service_id for t in trips]),
@@ -384,8 +412,8 @@ class GtfsBinary:
 
     def calculate_medians(self, deltas: list[list[int]]) -> list[int]:
         result: list[int] = []
-        for i in range(1, len(deltas[0])):
-            result.append(mode(d[i] - d[i-1] for d in deltas))
+        for i in range(len(deltas[0])):
+            result.append(mode(d[i] for d in deltas))
         return result
 
     def pack_trips_chunk(self, trips: list[tuple[str, Trip]],
@@ -395,14 +423,13 @@ class GtfsBinary:
         result = b''
         result += e.pack_uints_delta([t[1].departures[0] for t in trips])
         all_deltas: list[int] = []
-        for t in trips:
-            all_deltas += [
-                p[1] - p[0] - common_deltas[i]
-                for i, p in enumerate(itertools.pairwise(t[1].departures))
-            ]
-        result += e.pack_sints_delta(all_deltas)
+        for i in range(len(trips[0][1].departure_deltas)):
+            for t in trips:
+                all_deltas.append(
+                    t[1].departure_deltas[i] - common_deltas[i])
+        result += e.pack_sints_rle(all_deltas)
 
-        result += e.pack_strings([t[0] for t in trips])
+        result += e.pack_strings_common([t[0] for t in trips])
         result += e.pack_1bit([t[1].approximate for t in trips])
 
         if has_frequencies:

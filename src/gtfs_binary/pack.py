@@ -16,7 +16,8 @@ def main():
         '-o', '--output', required=True,
         help='Output binary file (use gtb extension)')
     parser.add_argument(
-        '-r', '--raw', action='store_true', help='Do not use zstd compression')
+        '-c', '--compress', action='store_true',
+        help='Compress blocks with zstd')
     options = parser.parse_args()
 
     feed = GtfsBinary(date=int(date.today().strftime('%y%m%d')))
@@ -39,7 +40,7 @@ def main():
         feed.trips = trips.prepare()
 
     with open(options.output, 'wb') as f:
-        feed.write(f, compress=not options.raw)
+        feed.write(f, compress=options.compress)
 
 
 if __name__ == '__main__':

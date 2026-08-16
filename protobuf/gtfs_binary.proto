@@ -260,14 +260,16 @@ message Route {
 
   // No sorting order.
   repeated Itinerary itineraries = 9;
+  // Headsign dictionary, referenced from itineraries.
+  repeated string headsigns = 10;
 }
 
 message Itinerary {
   uint32 shape_id = 1; // plus one, so zero means no shape
   repeated uint32 stop_ids = 2;
-  bytes headsigns = 3; // strings RLE
-  bytes pickup_types = 4; // bit-packed (2 bit each)
-  bytes dropoff_types = 5; // same
+  bytes headsigns = 3; // references, uints RLE
+  bytes pickup_types = 4; // bit-packed (2 bit each). Skipped if all but last are zeroes.
+  bytes dropoff_types = 5; // same, also skipped if all but first are zeroes.
 
   // The most common deltas between stop departures for trips.
   // Granularity is 5 seconds, rounded down.
@@ -286,7 +288,8 @@ message TripsChunk {
   // First because we want to filter trips by first stop-last stop times.
   uint32 first_stop_departure = 1;
 
-  // Differences from itinerary.depature_deltas. Granularity is 5 seconds.
+  // Differences from itinerary.depature_deltas, RLE-packed. Granularity is 5 seconds.
+  // Transposed: first all trips for stop 1, then for stop 2 etc etc.
   // Count is (number of trips) × (number of stops - 1)
   // 0 is missing value, positive numbers should be increased by 1.
   // Mind the accumulated rounding error and the +1!
@@ -295,7 +298,11 @@ message TripsChunk {
 
   // (we skip arrivals because they matter less)
 
+  // Not a simple length + string: first byte is length when < 0x80.
+  // When 7 bit is set, it has a common prefix length with the previous,
+  // and the suffix length is in the next byte. The first can be of 255 length.
   string gtfs_id = 3;
+
   // schedule-based: whether we can trust every timestamp for departures/arrivals.
   // frequency-based: whether the intervals are exact. Bit-packed.
   bool approximate = 4;

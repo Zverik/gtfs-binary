@@ -85,8 +85,8 @@ def print_shape_metadata(s: g.ShapeMetadata):
     }))
 
 
-def print_shape(f: BinaryIO, block: g.BlockMetadata, s: g.ShapeMetadata,
-                shape_id: int | None = None):
+def print_shape(f: BinaryIO, compressed: bool, block: g.BlockMetadata,
+                s: g.ShapeMetadata, shape_id: int | None = None):
     if len(s.chunk_lengths) == 0:
         return
     if shape_id is None:
@@ -96,7 +96,7 @@ def print_shape(f: BinaryIO, block: g.BlockMetadata, s: g.ShapeMetadata,
         c for c in s.chunk_lengths[:shape_chunk])
     print(f'Shape {shape_id} in chunk {shape_chunk}, offset {offset}')
     chunk = read_message(
-        f, g.ShapeChunk(), offset, s.chunk_lengths[shape_chunk], True)
+        f, g.ShapeChunk(), offset, s.chunk_lengths[shape_chunk], compressed)
     shape = chunk.shapes[shape_id - shape_chunk * s.chunk_size]
     print('Latitudes: ' + prep(list_info(shape.latitudes, sample=False)))
     print('Longitudes: ' + prep(list_info(shape.longitudes, sample=False)))
@@ -272,14 +272,14 @@ def int_to_time(value: int) -> str:
     return f'{hour:02d}:{minute:02d}:{second:02d}'
 
 
-def print_route(f: BinaryIO, block: g.BlockMetadata, r: g.RouteMetadata,
-                route_id: int | None = None):
+def print_route(f: BinaryIO, compressed: bool, block: g.BlockMetadata,
+                r: g.RouteMetadata, route_id: int | None = None):
     if route_id is None:
         route_id = random.randrange(len(r.route_lengths))
     offset = block.offset + block.length + sum(
         c for c in r.route_lengths[:route_id])
     route = read_message(
-        f, g.Route(), offset, r.route_lengths[route_id], True)
+        f, g.Route(), offset, r.route_lengths[route_id], compressed)
     print(prep({
         'route_id': route_id,
         'agency_id': route.agency_id,
@@ -290,6 +290,7 @@ def print_route(f: BinaryIO, block: g.BlockMetadata, r: g.RouteMetadata,
         'color': hex(route.color),
         'text_color': hex(route.text_color),
         'has_frequencies': route.has_frequencies,
+        'headsigns_start': list(route.headsigns)[:10],
     }))
     for itin in route.itineraries:
         print()
@@ -298,12 +299,12 @@ def print_route(f: BinaryIO, block: g.BlockMetadata, r: g.RouteMetadata,
         print(prep({
             'shape_id': itin.shape_id,
             'stop_ids': list(itin.stop_ids),
-            'headsigns': dec.unpack_strings_rle(
-                itin.headsigns, 0, stop_count)[0],
+            'headsigns': [route.headsigns[h] for h in dec.unpack_uints_rle(
+                itin.headsigns, 0, stop_count)[0]],
             'pickup_types': dec.unpack_2bit(
-                itin.pickup_types, 0, stop_count)[0],
+                itin.pickup_types, 0, stop_count)[0] or None,
             'dropoff_types': dec.unpack_2bit(
-                itin.dropoff_types, 0, stop_count)[0],
+                itin.dropoff_types, 0, stop_count)[0] or None,
             'departure_deltas': list(itin.departure_deltas),
             'service_ids': list_info(service_ids),
             'trips_length': len(itin.trips),
@@ -326,12 +327,13 @@ def print_trips(data: bytes, count: int, stops: int, toprint: int,
 
     deps, pos = dec.unpack_uints_delta(data, 0, count)
     info['first_stop_departure'] = [int_to_time(v*5) for v in deps[:toprint]]
-    values, pos = dec.unpack_sints_delta(data, pos, count * (stops - 1))
+    values, pos = dec.unpack_sints_rle(data, pos, count * (stops - 1))
     info['departure_deltas'] = []
     for i in range(toprint):
-        info['departure_deltas'].append(values[i*(stops-1):(i+1)*(stops-1)-1])
+        info['departure_deltas'].append(
+            [values[i+j] for j in range(0, len(values), count)])
 
-    values, pos = dec.unpack_strings(data, pos, count)
+    values, pos = dec.unpack_strings_common(data, pos, count)
     info['gtfs_id'] = values[:toprint]
     values, pos = dec.unpack_1bit(data, pos, count)
     info['approximate'] = values[:toprint]
@@ -415,7 +417,8 @@ def main():
     elif options.block == 'agencies':
         print_agencies(agencies)
     elif options.block == 'shapes':
-        print_shape(f, blocks[g.Block.B_SHAPES], shapes, options.id)
+        print_shape(
+            f, footer.compressed, blocks[g.Block.B_SHAPES], shapes, options.id)
     elif options.block == 'stops':
         print_stop(f, blocks[g.Block.B_STOPS], stops, options.id)
     elif options.block == 'lookup':
@@ -427,7 +430,8 @@ def main():
     elif options.block == 'calendar':
         print_calendar(f, blocks[g.Block.B_CALENDAR], calendar, options.id)
     elif options.block == 'routes':
-        print_route(f, blocks[g.Block.B_ROUTES], routes, options.id)
+        print_route(
+            f, footer.compressed, blocks[g.Block.B_ROUTES], routes, options.id)
     else:
         print(f'Unsupported block type: {options.block}')
 
