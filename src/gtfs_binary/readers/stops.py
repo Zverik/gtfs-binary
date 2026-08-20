@@ -13,7 +13,7 @@ class StopsReader:
         self.geohash_xor = 0
 
     def prepare(self) -> list[g.StopsChunk]:
-        result: list[tuple[str, g.StopsChunk]] = []
+        stops: dict[str, g.StopsChunk] = {}
         parents: dict[str, str] = {}
         with self.z.open_table('stops') as f:
             for row, stop_id in self.z.table_reader(f, 'stop_id'):
@@ -36,12 +36,18 @@ class StopsReader:
                     # route_ids to be filled after reading routes
                 )
                 # Precision 22 is equivalent to tiles at zoom 12.
+                # 24 is for 13.
                 stop.geohash = geohash(
                     float(stop.lat) / COORD_SCALE,
                     float(stop.lon) / COORD_SCALE, 24)
-                result.append((stop_id, stop))
+                stops[stop_id] = stop
+
+        # Set the same geohash for children as for the parent.
+        for stop_id, parent_id in parents.items():
+            stops[stop_id].geohash = stops[parent_id].geohash
 
         # Every geohash except the first is XOR-ed with the first.
+        result = list(stops.items())
         self.geohash_xor = result[0][1].geohash
         for t in result:
             t[1].geohash ^= self.geohash_xor

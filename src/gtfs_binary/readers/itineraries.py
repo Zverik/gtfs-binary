@@ -74,6 +74,7 @@ class ItineraryReader:
                     headsigns=trip.headsigns,
                     pickup_types=trip.pickup_types,
                     dropoff_types=trip.dropoff_types,
+                    opposite_direction=trip.opposite,
                 )
 
                 result[route_id].append(itin)

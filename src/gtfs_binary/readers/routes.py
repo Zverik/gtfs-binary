@@ -13,6 +13,7 @@ class RoutesReader:
             for row, route_id in self.z.table_reader(f, 'route_id'):
                 route = g.Route(
                     agency_id=self.ids.agencies[row['agency_id']],
+                    gtfs_id=route_id,
                     type=self.route_type_to_enum(row['route_type']),
                     short_name=row.get('route_short_name'),
                     long_name=row.get('route_long_name'),

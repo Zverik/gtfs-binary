@@ -77,6 +77,8 @@ enum Block {
 // Enumerated from zero, like array indices.
 message Agencies {
   repeated Agency agencies = 1;
+  repeated string ticket_info = 2;
+  repeated Realtime realtime = 3;
 }
 
 message Agency {
@@ -87,6 +89,20 @@ message Agency {
   string phone = 5;
   string fare_url = 6;
   string email = 7;
+  // index + 1 from Agencies.ticket_info
+  uint32 ticket_info = 8;
+  // index + 1 from Agencies.realtime
+  uint32 realtime = 9;
+}
+
+message Realtime {
+  RealtimeType type = 1;
+  string url = 2;
+}
+
+enum RealtimeType {
+  RT_UNKNOWN = 0;
+  RT_GTFS = 1; // GTFS-RT
 }
 
 
@@ -118,7 +134,7 @@ message Shape {
 }
 
 
-// Stops are split into chunks for 22-bit geohashes to speed up retrieval.
+// Stops are split into chunks for 24-bit geohashes to speed up retrieval.
 // For stops within stations, the station geohash is used for chunking.
 message StopMetadata {
   uint32 geohash_xor = 1;
@@ -154,7 +170,7 @@ message StopsChunk {
 
   // Those two are skipped if has_stations is false.
   bool is_station = 9; // we skip all exit/node/boarding stops, bit-packed
-  uint32 parent_id = 10; // stop_id + 1, RLE-encoded
+  uint32 parent_id = 10; // stop position inside the chunk + 1, RLE-encoded
 
   uint32 geohash = 30; // not included, for sorting purposes.
 }
@@ -169,6 +185,7 @@ enum Accessibility {
 // Unlike other blocks, this one is completely contained in the metadata.
 message LookupMetadata {
   StopLookup stop_by_name = 1;
+  StopLookup stop_by_gtfs_id = 2;
 }
 
 
@@ -250,18 +267,19 @@ message RouteMetadata {
 // These follow the RouteMetadata, not attached to any message.
 message Route {
   uint32 agency_id = 1;
-  RouteType type = 2;
-  string short_name = 3;
-  string long_name = 4;
-  string desc = 5;
-  uint32 color = 6; // note: black (0x000000) and white (0xffffff) are swapped!
-  uint32 text_color = 7;
-  bool has_frequencies = 8; // whether frequencies in trips are present
+  string gtfs_id = 2;
+  RouteType type = 3;
+  string short_name = 4;
+  string long_name = 5;
+  string desc = 6;
+  uint32 color = 7; // note: black (0x000000) and white (0xffffff) are swapped!
+  uint32 text_color = 8;
+  bool has_frequencies = 9; // whether frequencies in trips are present
 
   // No sorting order.
-  repeated Itinerary itineraries = 9;
+  repeated Itinerary itineraries = 10;
   // Headsign dictionary, referenced from itineraries.
-  repeated string headsigns = 10;
+  repeated string headsigns = 11;
 }
 
 message Itinerary {
@@ -270,13 +288,14 @@ message Itinerary {
   bytes headsigns = 3; // references, uints RLE
   bytes pickup_types = 4; // bit-packed (2 bit each). Skipped if all but last are zeroes.
   bytes dropoff_types = 5; // same, also skipped if all but first are zeroes.
+  bool opposite_direction = 6;
 
   // The most common deltas between stop departures for trips.
   // Granularity is 5 seconds, rounded down.
-  repeated uint32 departure_deltas = 6;
+  repeated uint32 departure_deltas = 7;
 
-  bytes service_ids = 7; // instead of lengths we pack the single remaning mandatory field, uint RLE
-  bytes trips = 8; // no point in reading the chunk separately
+  bytes service_ids = 8; // instead of lengths we pack the single remaning mandatory field, uint RLE
+  bytes trips = 9; // no point in reading the chunk separately
 }
 
 // Column-oriented set of trips following the Route message.

@@ -45,12 +45,14 @@ class Itinerary:
     def __init__(self, shape_id: int | None, stops: list[int],
                  headsigns: list[str],
                  pickup_types: list[g.PickupDropoff],
-                 dropoff_types: list[g.PickupDropoff]):
+                 dropoff_types: list[g.PickupDropoff],
+                 opposite_direction: bool):
         self.shape_id = shape_id
         self.stops = stops
         self.headsigns = headsigns
         self.pickup_types = pickup_types
         self.dropoff_types = dropoff_types
+        self.opposite_direction = opposite_direction
 
 
 class IdReference:
@@ -154,8 +156,10 @@ class GtfsBinary:
     def pack_lookup(self) -> tuple[bytes, bytes]:
         # TODO: normalize unicode
         names = Trie([s.name.lower() for s in self.stops])
+        ids = Trie([s.gtfs_id for s in self.stops])
         metadata = g.LookupMetadata(
             stop_by_name=pack_trie(names),
+            stop_by_gtfs_id=pack_trie(ids),
         )
         return metadata.SerializeToString(), b''
 
@@ -209,7 +213,9 @@ class GtfsBinary:
                 routes_by_stops.get(i, []), add_len=True)
         if stations:
             result += e.pack_1bit([s.is_station for s in stops])
-            result += e.pack_uints_rle([s.parent_id + 1 for s in stops])
+            result += e.pack_uints_rle(
+                [0 if not s.parent_id else s.parent_id - first_id + 1
+                 for s in stops])
         return result
 
     def routes_by_stops(self) -> dict[int, list[int]]:
@@ -386,6 +392,7 @@ class GtfsBinary:
                     else e.pack_2bit(itin.pickup_types),
                     dropoff_types=None if std_dropoffs
                     else e.pack_2bit(itin.dropoff_types),
+                    opposite_direction=itin.opposite_direction,
                     departure_deltas=common_deltas,
                     service_ids=e.pack_uints_rle(
                         [t[1].service_id for t in trips]),

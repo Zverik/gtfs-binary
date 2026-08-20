@@ -128,8 +128,6 @@ def unpack_sints_delta(data: bytes, dstart: int, count: int, start: int = 0
 
 def unpack_bytes_rle(data: bytes, start: int, count: int
                      ) -> tuple[bytes, int]:
-    if count < 0:
-        count, start = unpack_uint(data, start)
     result, start = unpack_rle(
         data, start, count, lambda v, s: (v[s].to_bytes(), s + 1))
     return b''.join(result), start

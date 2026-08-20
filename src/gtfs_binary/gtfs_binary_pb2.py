@@ -15,10 +15,12 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11gtfs_binary.proto\x12\x04gtfs\"v\n\x06\x46ooter\x12\x0f\n\x07version\x18\x01 \x01(\r\x12\x0c\n\x04\x64\x61te\x18\x02 \x01(\r\x12\x14\n\x0coriginal_url\x18\x03 \x01(\t\x12\x12\n\ncompressed\x18\x04 \x01(\x08\x12#\n\x06\x62locks\x18\x06 \x03(\x0b\x32\x13.gtfs.BlockMetadata\"_\n\rBlockMetadata\x12\x1a\n\x05\x62lock\x18\x01 \x01(\x0e\x32\x0b.gtfs.Block\x12\x0e\n\x06offset\x18\x02 \x01(\x04\x12\x0e\n\x06length\x18\x03 \x01(\r\x12\x12\n\ncompressed\x18\x04 \x01(\x08\"*\n\x08\x41gencies\x12\x1e\n\x08\x61gencies\x18\x01 \x03(\x0b\x32\x0c.gtfs.Agency\"s\n\x06\x41gency\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03url\x18\x02 \x01(\t\x12\x10\n\x08timezone\x18\x03 \x01(\t\x12\x0c\n\x04lang\x18\x04 \x01(\t\x12\r\n\x05phone\x18\x05 \x01(\t\x12\x10\n\x08\x66\x61re_url\x18\x06 \x01(\t\x12\r\n\x05\x65mail\x18\x07 \x01(\t\":\n\rShapeMetadata\x12\x12\n\nchunk_size\x18\x01 \x01(\r\x12\x15\n\rchunk_lengths\x18\x02 \x03(\r\")\n\nShapeChunk\x12\x1b\n\x06shapes\x18\x01 \x03(\x0b\x32\x0b.gtfs.Shape\".\n\x05Shape\x12\x12\n\nlongitudes\x18\x01 \x03(\x11\x12\x11\n\tlatitudes\x18\x02 \x03(\x11\"~\n\x0cStopMetadata\x12\x13\n\x0bgeohash_xor\x18\x01 \x01(\r\x12\x11\n\tgeohashes\x18\x02 \x03(\r\x12\x15\n\rchunk_lengths\x18\x03 \x03(\x11\x12\x19\n\x11\x63hunk_stop_counts\x18\x04 \x03(\r\x12\x14\n\x0chas_stations\x18\x05 \x01(\x08\"\xd5\x01\n\nStopsChunk\x12\x0f\n\x07gtfs_id\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x0c\n\x04\x64\x65sc\x18\x04 \x01(\t\x12\x0b\n\x03lat\x18\x05 \x01(\x11\x12\x0b\n\x03lon\x18\x06 \x01(\x11\x12\'\n\nwheelchair\x18\x07 \x01(\x0e\x32\x13.gtfs.Accessibility\x12\x11\n\troute_ids\x18\x08 \x03(\r\x12\x12\n\nis_station\x18\t \x01(\x08\x12\x11\n\tparent_id\x18\n \x01(\r\x12\x0f\n\x07geohash\x18\x1e \x01(\r\"8\n\x0eLookupMetadata\x12&\n\x0cstop_by_name\x18\x01 \x01(\x0b\x32\x10.gtfs.StopLookup\"\xe8\x01\n\nStopLookup\x12\x13\n\x0bstring_blob\x18\x01 \x01(\x0c\x12\x10\n\x08stop_ids\x18\x02 \x03(\r\x12\x18\n\x10node_edge_offset\x18\x03 \x03(\r\x12\x17\n\x0fnode_edge_count\x18\x04 \x03(\r\x12\x18\n\x10node_stop_offset\x18\x05 \x03(\r\x12\x17\n\x0fnode_stop_count\x18\x06 \x03(\r\x12\x19\n\x11\x65\x64ge_label_offset\x18\x07 \x03(\r\x12\x19\n\x11\x65\x64ge_label_length\x18\x08 \x03(\r\x12\x17\n\x0f\x65\x64ge_node_index\x18\t \x03(\r\"\x8d\x01\n\x10\x43\x61lendarMetadata\x12\x11\n\tbase_date\x18\x01 \x01(\r\x12\x13\n\x0bstart_dates\x18\x02 \x03(\r\x12\x11\n\tend_dates\x18\x03 \x03(\r\x12\x10\n\x08weekdays\x18\x04 \x03(\r\x12\x15\n\rdays_in_month\x18\x05 \x01(\r\x12\x15\n\rmonth_lengths\x18\x06 \x03(\x11\"H\n\rCalendarMonth\x12\x14\n\x0c\x64\x61te_offsets\x18\x01 \x03(\r\x12!\n\x05\x64\x61tes\x18\x02 \x03(\x0b\x32\x12.gtfs.CalendarDate\"9\n\x0c\x43\x61lendarDate\x12\x13\n\x0bincluded_in\x18\x01 \x03(\r\x12\x14\n\x0c\x65xception_in\x18\x02 \x03(\r\"Z\n\rRouteMetadata\x12\x15\n\rroute_lengths\x18\x01 \x03(\r\x12\x1b\n\x13has_wheelchair_info\x18\x02 \x01(\x08\x12\x15\n\rhas_bike_info\x18\x03 \x01(\x08\"\xe3\x01\n\x05Route\x12\x11\n\tagency_id\x18\x01 \x01(\r\x12\x1d\n\x04type\x18\x02 \x01(\x0e\x32\x0f.gtfs.RouteType\x12\x12\n\nshort_name\x18\x03 \x01(\t\x12\x11\n\tlong_name\x18\x04 \x01(\t\x12\x0c\n\x04\x64\x65sc\x18\x05 \x01(\t\x12\r\n\x05\x63olor\x18\x06 \x01(\r\x12\x12\n\ntext_color\x18\x07 \x01(\r\x12\x17\n\x0fhas_frequencies\x18\x08 \x01(\x08\x12$\n\x0bitineraries\x18\t \x03(\x0b\x32\x0f.gtfs.Itinerary\x12\x11\n\theadsigns\x18\n \x03(\t\"\xad\x01\n\tItinerary\x12\x10\n\x08shape_id\x18\x01 \x01(\r\x12\x10\n\x08stop_ids\x18\x02 \x03(\r\x12\x11\n\theadsigns\x18\x03 \x01(\x0c\x12\x14\n\x0cpickup_types\x18\x04 \x01(\x0c\x12\x15\n\rdropoff_types\x18\x05 \x01(\x0c\x12\x18\n\x10\x64\x65parture_deltas\x18\x06 \x03(\r\x12\x13\n\x0bservice_ids\x18\x07 \x01(\x0c\x12\r\n\x05trips\x18\x08 \x01(\x0c\"\xdb\x01\n\nTripsChunk\x12\x1c\n\x14\x66irst_stop_departure\x18\x01 \x01(\r\x12\x18\n\x10\x64\x65parture_deltas\x18\x02 \x03(\x11\x12\x0f\n\x07gtfs_id\x18\x03 \x01(\t\x12\x13\n\x0b\x61pproximate\x18\x04 \x01(\x08\x12\x10\n\x08\x65nd_time\x18\x05 \x01(\r\x12\x10\n\x08interval\x18\x06 \x01(\r\x12\'\n\nwheelchair\x18\x07 \x01(\x0e\x32\x13.gtfs.Accessibility\x12\"\n\x05\x62ikes\x18\x08 \x01(\x0e\x32\x13.gtfs.Accessibility*m\n\x05\x42lock\x12\r\n\tB_UNKNOWN\x10\x00\x12\x0b\n\x07\x42_STOPS\x10\x01\x12\x0e\n\nB_CALENDAR\x10\x02\x12\x0c\n\x08\x42_ROUTES\x10\x03\x12\x0c\n\x08\x42_SHAPES\x10\x04\x12\x0c\n\x08\x42_LOOKUP\x10\x05\x12\x0e\n\nB_AGENCIES\x10\x06*4\n\rAccessibility\x12\r\n\tA_UNKNOWN\x10\x00\x12\n\n\x06\x41_SOME\x10\x01\x12\x08\n\x04\x41_NO\x10\x02*O\n\rPickupDropoff\x12\n\n\x06PD_YES\x10\x00\x12\t\n\x05PD_NO\x10\x01\x12\x13\n\x0fPD_PHONE_AGENCY\x10\x02\x12\x12\n\x0ePD_TELL_DRIVER\x10\x03*\x80\x02\n\tRouteType\x12\t\n\x05T_BUS\x10\x00\x12\n\n\x06T_TRAM\x10\x01\x12\x0c\n\x08T_SUBWAY\x10\x02\x12\n\n\x06T_RAIL\x10\x03\x12\x0b\n\x07T_FERRY\x10\x04\x12\x10\n\x0cT_CABLE_TRAM\x10\x05\x12\x0c\n\x08T_AERIAL\x10\x06\x12\x0f\n\x0bT_FUNICULAR\x10\x07\x12\x13\n\x0fT_COMMUNAL_TAXI\x10\t\x12\x0b\n\x07T_COACH\x10\n\x12\x10\n\x0cT_TROLLEYBUS\x10\x0b\x12\x0e\n\nT_MONORAIL\x10\x0c\x12\x10\n\x0cT_URBAN_RAIL\x10\x15\x12\x0b\n\x07T_WATER\x10\x16\x12\t\n\x05T_AIR\x10\x17\x12\n\n\x06T_TAXI\x10\x18\x12\n\n\x06T_MISC\x10\x19\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11gtfs_binary.proto\x12\x04gtfs\"v\n\x06\x46ooter\x12\x0f\n\x07version\x18\x01 \x01(\r\x12\x0c\n\x04\x64\x61te\x18\x02 \x01(\r\x12\x14\n\x0coriginal_url\x18\x03 \x01(\t\x12\x12\n\ncompressed\x18\x04 \x01(\x08\x12#\n\x06\x62locks\x18\x06 \x03(\x0b\x32\x13.gtfs.BlockMetadata\"_\n\rBlockMetadata\x12\x1a\n\x05\x62lock\x18\x01 \x01(\x0e\x32\x0b.gtfs.Block\x12\x0e\n\x06offset\x18\x02 \x01(\x04\x12\x0e\n\x06length\x18\x03 \x01(\r\x12\x12\n\ncompressed\x18\x04 \x01(\x08\"a\n\x08\x41gencies\x12\x1e\n\x08\x61gencies\x18\x01 \x03(\x0b\x32\x0c.gtfs.Agency\x12\x13\n\x0bticket_info\x18\x02 \x03(\t\x12 \n\x08realtime\x18\x03 \x03(\x0b\x32\x0e.gtfs.Realtime\"\x9a\x01\n\x06\x41gency\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0b\n\x03url\x18\x02 \x01(\t\x12\x10\n\x08timezone\x18\x03 \x01(\t\x12\x0c\n\x04lang\x18\x04 \x01(\t\x12\r\n\x05phone\x18\x05 \x01(\t\x12\x10\n\x08\x66\x61re_url\x18\x06 \x01(\t\x12\r\n\x05\x65mail\x18\x07 \x01(\t\x12\x13\n\x0bticket_info\x18\x08 \x01(\r\x12\x10\n\x08realtime\x18\t \x01(\r\"9\n\x08Realtime\x12 \n\x04type\x18\x01 \x01(\x0e\x32\x12.gtfs.RealtimeType\x12\x0b\n\x03url\x18\x02 \x01(\t\":\n\rShapeMetadata\x12\x12\n\nchunk_size\x18\x01 \x01(\r\x12\x15\n\rchunk_lengths\x18\x02 \x03(\r\")\n\nShapeChunk\x12\x1b\n\x06shapes\x18\x01 \x03(\x0b\x32\x0b.gtfs.Shape\".\n\x05Shape\x12\x12\n\nlongitudes\x18\x01 \x03(\x11\x12\x11\n\tlatitudes\x18\x02 \x03(\x11\"~\n\x0cStopMetadata\x12\x13\n\x0bgeohash_xor\x18\x01 \x01(\r\x12\x11\n\tgeohashes\x18\x02 \x03(\r\x12\x15\n\rchunk_lengths\x18\x03 \x03(\x11\x12\x19\n\x11\x63hunk_stop_counts\x18\x04 \x03(\r\x12\x14\n\x0chas_stations\x18\x05 \x01(\x08\"\xd5\x01\n\nStopsChunk\x12\x0f\n\x07gtfs_id\x18\x01 \x01(\t\x12\x0c\n\x04\x63ode\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x0c\n\x04\x64\x65sc\x18\x04 \x01(\t\x12\x0b\n\x03lat\x18\x05 \x01(\x11\x12\x0b\n\x03lon\x18\x06 \x01(\x11\x12\'\n\nwheelchair\x18\x07 \x01(\x0e\x32\x13.gtfs.Accessibility\x12\x11\n\troute_ids\x18\x08 \x03(\r\x12\x12\n\nis_station\x18\t \x01(\x08\x12\x11\n\tparent_id\x18\n \x01(\r\x12\x0f\n\x07geohash\x18\x1e \x01(\r\"c\n\x0eLookupMetadata\x12&\n\x0cstop_by_name\x18\x01 \x01(\x0b\x32\x10.gtfs.StopLookup\x12)\n\x0fstop_by_gtfs_id\x18\x02 \x01(\x0b\x32\x10.gtfs.StopLookup\"\xe8\x01\n\nStopLookup\x12\x13\n\x0bstring_blob\x18\x01 \x01(\x0c\x12\x10\n\x08stop_ids\x18\x02 \x03(\r\x12\x18\n\x10node_edge_offset\x18\x03 \x03(\r\x12\x17\n\x0fnode_edge_count\x18\x04 \x03(\r\x12\x18\n\x10node_stop_offset\x18\x05 \x03(\r\x12\x17\n\x0fnode_stop_count\x18\x06 \x03(\r\x12\x19\n\x11\x65\x64ge_label_offset\x18\x07 \x03(\r\x12\x19\n\x11\x65\x64ge_label_length\x18\x08 \x03(\r\x12\x17\n\x0f\x65\x64ge_node_index\x18\t \x03(\r\"\x8d\x01\n\x10\x43\x61lendarMetadata\x12\x11\n\tbase_date\x18\x01 \x01(\r\x12\x13\n\x0bstart_dates\x18\x02 \x03(\r\x12\x11\n\tend_dates\x18\x03 \x03(\r\x12\x10\n\x08weekdays\x18\x04 \x03(\r\x12\x15\n\rdays_in_month\x18\x05 \x01(\r\x12\x15\n\rmonth_lengths\x18\x06 \x03(\x11\"H\n\rCalendarMonth\x12\x14\n\x0c\x64\x61te_offsets\x18\x01 \x03(\r\x12!\n\x05\x64\x61tes\x18\x02 \x03(\x0b\x32\x12.gtfs.CalendarDate\"9\n\x0c\x43\x61lendarDate\x12\x13\n\x0bincluded_in\x18\x01 \x03(\r\x12\x14\n\x0c\x65xception_in\x18\x02 \x03(\r\"Z\n\rRouteMetadata\x12\x15\n\rroute_lengths\x18\x01 \x03(\r\x12\x1b\n\x13has_wheelchair_info\x18\x02 \x01(\x08\x12\x15\n\rhas_bike_info\x18\x03 \x01(\x08\"\xf4\x01\n\x05Route\x12\x11\n\tagency_id\x18\x01 \x01(\r\x12\x0f\n\x07gtfs_id\x18\x02 \x01(\t\x12\x1d\n\x04type\x18\x03 \x01(\x0e\x32\x0f.gtfs.RouteType\x12\x12\n\nshort_name\x18\x04 \x01(\t\x12\x11\n\tlong_name\x18\x05 \x01(\t\x12\x0c\n\x04\x64\x65sc\x18\x06 \x01(\t\x12\r\n\x05\x63olor\x18\x07 \x01(\r\x12\x12\n\ntext_color\x18\x08 \x01(\r\x12\x17\n\x0fhas_frequencies\x18\t \x01(\x08\x12$\n\x0bitineraries\x18\n \x03(\x0b\x32\x0f.gtfs.Itinerary\x12\x11\n\theadsigns\x18\x0b \x03(\t\"\xc9\x01\n\tItinerary\x12\x10\n\x08shape_id\x18\x01 \x01(\r\x12\x10\n\x08stop_ids\x18\x02 \x03(\r\x12\x11\n\theadsigns\x18\x03 \x01(\x0c\x12\x14\n\x0cpickup_types\x18\x04 \x01(\x0c\x12\x15\n\rdropoff_types\x18\x05 \x01(\x0c\x12\x1a\n\x12opposite_direction\x18\x06 \x01(\x08\x12\x18\n\x10\x64\x65parture_deltas\x18\x07 \x03(\r\x12\x13\n\x0bservice_ids\x18\x08 \x01(\x0c\x12\r\n\x05trips\x18\t \x01(\x0c\"\xdb\x01\n\nTripsChunk\x12\x1c\n\x14\x66irst_stop_departure\x18\x01 \x01(\r\x12\x18\n\x10\x64\x65parture_deltas\x18\x02 \x03(\x11\x12\x0f\n\x07gtfs_id\x18\x03 \x01(\t\x12\x13\n\x0b\x61pproximate\x18\x04 \x01(\x08\x12\x10\n\x08\x65nd_time\x18\x05 \x01(\r\x12\x10\n\x08interval\x18\x06 \x01(\r\x12\'\n\nwheelchair\x18\x07 \x01(\x0e\x32\x13.gtfs.Accessibility\x12\"\n\x05\x62ikes\x18\x08 \x01(\x0e\x32\x13.gtfs.Accessibility*m\n\x05\x42lock\x12\r\n\tB_UNKNOWN\x10\x00\x12\x0b\n\x07\x42_STOPS\x10\x01\x12\x0e\n\nB_CALENDAR\x10\x02\x12\x0c\n\x08\x42_ROUTES\x10\x03\x12\x0c\n\x08\x42_SHAPES\x10\x04\x12\x0c\n\x08\x42_LOOKUP\x10\x05\x12\x0e\n\nB_AGENCIES\x10\x06*+\n\x0cRealtimeType\x12\x0e\n\nRT_UNKNOWN\x10\x00\x12\x0b\n\x07RT_GTFS\x10\x01*4\n\rAccessibility\x12\r\n\tA_UNKNOWN\x10\x00\x12\n\n\x06\x41_SOME\x10\x01\x12\x08\n\x04\x41_NO\x10\x02*O\n\rPickupDropoff\x12\n\n\x06PD_YES\x10\x00\x12\t\n\x05PD_NO\x10\x01\x12\x13\n\x0fPD_PHONE_AGENCY\x10\x02\x12\x12\n\x0ePD_TELL_DRIVER\x10\x03*\x80\x02\n\tRouteType\x12\t\n\x05T_BUS\x10\x00\x12\n\n\x06T_TRAM\x10\x01\x12\x0c\n\x08T_SUBWAY\x10\x02\x12\n\n\x06T_RAIL\x10\x03\x12\x0b\n\x07T_FERRY\x10\x04\x12\x10\n\x0cT_CABLE_TRAM\x10\x05\x12\x0c\n\x08T_AERIAL\x10\x06\x12\x0f\n\x0bT_FUNICULAR\x10\x07\x12\x13\n\x0fT_COMMUNAL_TAXI\x10\t\x12\x0b\n\x07T_COACH\x10\n\x12\x10\n\x0cT_TROLLEYBUS\x10\x0b\x12\x0e\n\nT_MONORAIL\x10\x0c\x12\x10\n\x0cT_URBAN_RAIL\x10\x15\x12\x0b\n\x07T_WATER\x10\x16\x12\t\n\x05T_AIR\x10\x17\x12\n\n\x06T_TAXI\x10\x18\x12\n\n\x06T_MISC\x10\x19\x62\x06proto3')
 
 _BLOCK = DESCRIPTOR.enum_types_by_name['Block']
 Block = enum_type_wrapper.EnumTypeWrapper(_BLOCK)
+_REALTIMETYPE = DESCRIPTOR.enum_types_by_name['RealtimeType']
+RealtimeType = enum_type_wrapper.EnumTypeWrapper(_REALTIMETYPE)
 _ACCESSIBILITY = DESCRIPTOR.enum_types_by_name['Accessibility']
 Accessibility = enum_type_wrapper.EnumTypeWrapper(_ACCESSIBILITY)
 _PICKUPDROPOFF = DESCRIPTOR.enum_types_by_name['PickupDropoff']
@@ -32,6 +34,8 @@ B_ROUTES = 3
 B_SHAPES = 4
 B_LOOKUP = 5
 B_AGENCIES = 6
+RT_UNKNOWN = 0
+RT_GTFS = 1
 A_UNKNOWN = 0
 A_SOME = 1
 A_NO = 2
@@ -62,6 +66,7 @@ _FOOTER = DESCRIPTOR.message_types_by_name['Footer']
 _BLOCKMETADATA = DESCRIPTOR.message_types_by_name['BlockMetadata']
 _AGENCIES = DESCRIPTOR.message_types_by_name['Agencies']
 _AGENCY = DESCRIPTOR.message_types_by_name['Agency']
+_REALTIME = DESCRIPTOR.message_types_by_name['Realtime']
 _SHAPEMETADATA = DESCRIPTOR.message_types_by_name['ShapeMetadata']
 _SHAPECHUNK = DESCRIPTOR.message_types_by_name['ShapeChunk']
 _SHAPE = DESCRIPTOR.message_types_by_name['Shape']
@@ -103,6 +108,13 @@ Agency = _reflection.GeneratedProtocolMessageType('Agency', (_message.Message,),
   # @@protoc_insertion_point(class_scope:gtfs.Agency)
   })
 _sym_db.RegisterMessage(Agency)
+
+Realtime = _reflection.GeneratedProtocolMessageType('Realtime', (_message.Message,), {
+  'DESCRIPTOR' : _REALTIME,
+  '__module__' : 'gtfs_binary_pb2'
+  # @@protoc_insertion_point(class_scope:gtfs.Realtime)
+  })
+_sym_db.RegisterMessage(Realtime)
 
 ShapeMetadata = _reflection.GeneratedProtocolMessageType('ShapeMetadata', (_message.Message,), {
   'DESCRIPTOR' : _SHAPEMETADATA,
@@ -205,48 +217,52 @@ _sym_db.RegisterMessage(TripsChunk)
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _BLOCK._serialized_start=2190
-  _BLOCK._serialized_end=2299
-  _ACCESSIBILITY._serialized_start=2301
-  _ACCESSIBILITY._serialized_end=2353
-  _PICKUPDROPOFF._serialized_start=2355
-  _PICKUPDROPOFF._serialized_end=2434
-  _ROUTETYPE._serialized_start=2437
-  _ROUTETYPE._serialized_end=2693
+  _BLOCK._serialized_start=2432
+  _BLOCK._serialized_end=2541
+  _REALTIMETYPE._serialized_start=2543
+  _REALTIMETYPE._serialized_end=2586
+  _ACCESSIBILITY._serialized_start=2588
+  _ACCESSIBILITY._serialized_end=2640
+  _PICKUPDROPOFF._serialized_start=2642
+  _PICKUPDROPOFF._serialized_end=2721
+  _ROUTETYPE._serialized_start=2724
+  _ROUTETYPE._serialized_end=2980
   _FOOTER._serialized_start=27
   _FOOTER._serialized_end=145
   _BLOCKMETADATA._serialized_start=147
   _BLOCKMETADATA._serialized_end=242
   _AGENCIES._serialized_start=244
-  _AGENCIES._serialized_end=286
-  _AGENCY._serialized_start=288
-  _AGENCY._serialized_end=403
-  _SHAPEMETADATA._serialized_start=405
-  _SHAPEMETADATA._serialized_end=463
-  _SHAPECHUNK._serialized_start=465
-  _SHAPECHUNK._serialized_end=506
-  _SHAPE._serialized_start=508
-  _SHAPE._serialized_end=554
-  _STOPMETADATA._serialized_start=556
-  _STOPMETADATA._serialized_end=682
-  _STOPSCHUNK._serialized_start=685
-  _STOPSCHUNK._serialized_end=898
-  _LOOKUPMETADATA._serialized_start=900
-  _LOOKUPMETADATA._serialized_end=956
-  _STOPLOOKUP._serialized_start=959
-  _STOPLOOKUP._serialized_end=1191
-  _CALENDARMETADATA._serialized_start=1194
-  _CALENDARMETADATA._serialized_end=1335
-  _CALENDARMONTH._serialized_start=1337
-  _CALENDARMONTH._serialized_end=1409
-  _CALENDARDATE._serialized_start=1411
-  _CALENDARDATE._serialized_end=1468
-  _ROUTEMETADATA._serialized_start=1470
-  _ROUTEMETADATA._serialized_end=1560
-  _ROUTE._serialized_start=1563
-  _ROUTE._serialized_end=1790
-  _ITINERARY._serialized_start=1793
-  _ITINERARY._serialized_end=1966
-  _TRIPSCHUNK._serialized_start=1969
-  _TRIPSCHUNK._serialized_end=2188
+  _AGENCIES._serialized_end=341
+  _AGENCY._serialized_start=344
+  _AGENCY._serialized_end=498
+  _REALTIME._serialized_start=500
+  _REALTIME._serialized_end=557
+  _SHAPEMETADATA._serialized_start=559
+  _SHAPEMETADATA._serialized_end=617
+  _SHAPECHUNK._serialized_start=619
+  _SHAPECHUNK._serialized_end=660
+  _SHAPE._serialized_start=662
+  _SHAPE._serialized_end=708
+  _STOPMETADATA._serialized_start=710
+  _STOPMETADATA._serialized_end=836
+  _STOPSCHUNK._serialized_start=839
+  _STOPSCHUNK._serialized_end=1052
+  _LOOKUPMETADATA._serialized_start=1054
+  _LOOKUPMETADATA._serialized_end=1153
+  _STOPLOOKUP._serialized_start=1156
+  _STOPLOOKUP._serialized_end=1388
+  _CALENDARMETADATA._serialized_start=1391
+  _CALENDARMETADATA._serialized_end=1532
+  _CALENDARMONTH._serialized_start=1534
+  _CALENDARMONTH._serialized_end=1606
+  _CALENDARDATE._serialized_start=1608
+  _CALENDARDATE._serialized_end=1665
+  _ROUTEMETADATA._serialized_start=1667
+  _ROUTEMETADATA._serialized_end=1757
+  _ROUTE._serialized_start=1760
+  _ROUTE._serialized_end=2004
+  _ITINERARY._serialized_start=2007
+  _ITINERARY._serialized_end=2208
+  _TRIPSCHUNK._serialized_start=2211
+  _TRIPSCHUNK._serialized_end=2430
 # @@protoc_insertion_point(module_scope)

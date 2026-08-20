@@ -160,7 +160,7 @@ def print_stop(f: BinaryIO, block: g.BlockMetadata, s: g.StopMetadata,
     if s.has_stations:
         values, pos = dec.unpack_1bit(chunk, pos, chunk_len)
         info['is_station'] = values[d]
-        values, pos = dec.unpack_uints_delta(chunk, pos, chunk_len)
+        values, pos = dec.unpack_uints_rle(chunk, pos, chunk_len)
         info['parent_id'] = None if values[d] == 0 else values[d] - 1
     print(prep(info))
 
@@ -168,6 +168,7 @@ def print_stop(f: BinaryIO, block: g.BlockMetadata, s: g.StopMetadata,
 def print_lookup_metadata(meta: g.LookupMetadata):
     print('Lookup: ' + prep({
         'stop_by_name': trie_info(meta.stop_by_name),
+        'stop_by_gtfs_id': trie_info(meta.stop_by_gtfs_id),
     }))
 
 
@@ -282,6 +283,7 @@ def print_route(f: BinaryIO, compressed: bool, block: g.BlockMetadata,
         f, g.Route(), offset, r.route_lengths[route_id], compressed)
     print(prep({
         'route_id': route_id,
+        'gtfs_id': route.gtfs_id,
         'agency_id': route.agency_id,
         'short_name': route.short_name,
         'long_name': route.long_name,
@@ -305,6 +307,7 @@ def print_route(f: BinaryIO, compressed: bool, block: g.BlockMetadata,
                 itin.pickup_types, 0, stop_count)[0] or None,
             'dropoff_types': dec.unpack_2bit(
                 itin.dropoff_types, 0, stop_count)[0] or None,
+            'opposite_direction': itin.opposite_direction,
             'departure_deltas': list(itin.departure_deltas),
             'service_ids': list_info(service_ids),
             'trips_length': len(itin.trips),
