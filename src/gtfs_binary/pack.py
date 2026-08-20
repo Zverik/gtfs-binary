@@ -36,7 +36,7 @@ def main():
         itins = ItineraryReader(z, ids)
         feed.itineraries = itins.prepare()
         feed.trip_refs = itins.trip_refs
-        trips = TripsReader(z, ids)
+        trips = TripsReader(z, ids, feed.stops)
         feed.trips = trips.prepare()
 
     with open(options.output, 'wb') as f:

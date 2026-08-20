@@ -291,8 +291,8 @@ message TripsChunk {
   // Differences from itinerary.depature_deltas, RLE-packed. Granularity is 5 seconds.
   // Transposed: first all trips for stop 1, then for stop 2 etc etc.
   // Count is (number of trips) × (number of stops - 1)
-  // 0 is missing value, positive numbers should be increased by 1.
-  // Mind the accumulated rounding error and the +1!
+  // There are no missing values: we pre-calculate missing departure times.
+  // Mind the accumulated rounding error!
   // The entire list is delta-coded.
   repeated sint32 departure_deltas = 2;
 

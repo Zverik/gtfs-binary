@@ -38,17 +38,7 @@ class Trip:
 
     @cached_property
     def departure_deltas(self) -> list[int]:
-        result: list[int] = []
-        last_value = self.departures[0]
-        for i in range(1, len(self.departures)):
-            d = self.departures[i]
-            if d < 0:
-                result.append(0)
-            else:
-                delta = d - last_value
-                last_value = d
-                result.append(delta if delta < 0 else delta + 1)
-        return result
+        return [d[1] - d[0] for d in itertools.pairwise(self.departures)]
 
 
 class Itinerary:

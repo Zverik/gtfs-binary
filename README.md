@@ -49,8 +49,7 @@ shows queries are possible. But there are some feeds and some use-cases not
 yet addressed. What is left to do:
 
 * Normalize the unicode in building the stop name index.
-* Correctly process a missing first stop departure time (now it just throws an exception).
-* Fill in missing departure times based on `shape_dist_traveled` and stop locations.
+* Correctly process missing first/last stop departure times (now it just throws an exception).
 
 When the format is stable this all obviously needs to be rewritten in Rust
 to save memory and increase speed.
