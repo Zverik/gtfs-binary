@@ -169,6 +169,7 @@ def print_lookup_metadata(meta: g.LookupMetadata):
     print('Lookup: ' + prep({
         'stop_by_name': trie_info(meta.stop_by_name),
         'stop_by_gtfs_id': trie_info(meta.stop_by_gtfs_id),
+        'route_by_gtfs_id': trie_info(meta.route_by_gtfs_id),
     }))
 
 

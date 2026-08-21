@@ -156,10 +156,12 @@ class GtfsBinary:
     def pack_lookup(self) -> tuple[bytes, bytes]:
         # TODO: normalize unicode
         names = Trie([s.name.lower() for s in self.stops])
-        ids = Trie([s.gtfs_id for s in self.stops])
+        stop_ids = Trie([s.gtfs_id for s in self.stops])
+        route_ids = Trie([r.gtfs_id for r in self.routes])
         metadata = g.LookupMetadata(
             stop_by_name=pack_trie(names),
-            stop_by_gtfs_id=pack_trie(ids),
+            stop_by_gtfs_id=pack_trie(stop_ids),
+            route_by_gtfs_id=pack_trie(route_ids),
         )
         return metadata.SerializeToString(), b''
 

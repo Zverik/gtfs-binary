@@ -186,6 +186,7 @@ enum Accessibility {
 message LookupMetadata {
   StopLookup stop_by_name = 1;
   StopLookup stop_by_gtfs_id = 2;
+  StopLookup route_by_gtfs_id = 3;
 }
 
 
@@ -278,7 +279,7 @@ message Route {
 
   // No sorting order.
   repeated Itinerary itineraries = 10;
-  // Headsign dictionary, referenced from itineraries.
+  // Headsign dictionary, referenced from itineraries (may contain an empty one).
   repeated string headsigns = 11;
 }
 
