@@ -313,7 +313,6 @@ message TripsChunk {
   // Count is (number of trips) × (number of stops - 1)
   // There are no missing values: we pre-calculate missing departure times.
   // Mind the accumulated rounding error!
-  // The entire list is delta-coded.
   repeated sint32 departure_deltas = 2;
 
   // (we skip arrivals because they matter less)

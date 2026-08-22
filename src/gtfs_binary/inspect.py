@@ -301,7 +301,6 @@ def print_route(f: BinaryIO, compressed: bool, block: g.BlockMetadata,
     }))
     for itin in route.itineraries:
         print()
-        service_ids = dec.unpack_uints_rle(itin.service_ids, 0, 9999)[0]
         stop_count = len(itin.stop_ids)
         print(prep({
             'shape_id': itin.shape_id,
@@ -314,11 +313,11 @@ def print_route(f: BinaryIO, compressed: bool, block: g.BlockMetadata,
                 itin.dropoff_types, 0, stop_count)[0] or None,
             'opposite_direction': itin.opposite_direction,
             'departure_deltas': list(itin.departure_deltas),
-            'service_ids': list_info(service_ids),
+            'service_ids': list_info(itin.service_ids),
             'trips_length': len(itin.trips),
         }))
         print_trips(itin.trips,
-                    len(service_ids), stop_count, 2,
+                    len(itin.service_ids), stop_count, 2,
                     route.has_frequencies, r.has_wheelchair_info,
                     r.has_bike_info)
 
