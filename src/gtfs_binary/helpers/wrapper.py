@@ -396,8 +396,7 @@ class GtfsBinary:
                     else e.pack_2bit(itin.dropoff_types),
                     opposite_direction=itin.opposite_direction,
                     departure_deltas=common_deltas,
-                    service_ids=e.pack_uints_rle(
-                        [t[1].service_id for t in trips]),
+                    service_ids=[t[1].service_id for t in trips],
                     trips=trips_chunk,
                 ))
             chunks.append(self.compress(route.SerializeToString()))

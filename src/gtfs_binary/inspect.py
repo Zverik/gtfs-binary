@@ -197,8 +197,8 @@ def print_calendar_metadata(c: g.CalendarMetadata):
     }))
 
 
-def print_calendar(f: BinaryIO, block: g.BlockMetadata, c: g.CalendarMetadata,
-                   service_id: int | None = None):
+def print_calendar(f: BinaryIO, compressed: bool, block: g.BlockMetadata,
+                   c: g.CalendarMetadata, service_id: int | None = None):
     if service_id is None:
         service_id = random.randrange(len(c.start_dates))
         print(prep({
@@ -226,14 +226,18 @@ def print_calendar(f: BinaryIO, block: g.BlockMetadata, c: g.CalendarMetadata,
     today = date.today() + timedelta(days=30)
     today_month = (today - base_date).days // c.days_in_month
     if today_month >= len(c.month_lengths):
-        today = base_date + timedelta(days=c.days_in_month)
-        today_month = 1
+        if len(c.month_lengths) == 1:
+            today = base_date
+            today_month = 0
+        else:
+            today = base_date + timedelta(days=c.days_in_month)
+            today_month = 1
     offset = block.offset + block.length + sum(
         c for c in c.month_lengths[:today_month])
     print(f'Day {today.strftime('%Y-%m-%d')} in month {today_month}, '
           f'offset {offset}')
     month = read_message(
-        f, g.CalendarMonth(), offset, c.month_lengths[today_month], True)
+        f, g.CalendarMonth(), offset, c.month_lengths[today_month], compressed)
     info = {
         'date_offsets': list(month.date_offsets),
         'included_in': {},
@@ -363,7 +367,7 @@ def print_trips(data: bytes, count: int, stops: int, toprint: int,
 def read_data(f: BinaryIO, offset: int, length: int,
               compressed: bool = True) -> bytes:
     f.seek(offset)
-    data = f.read(length)
+    data = f.read(abs(length))
     if compressed and length > 0:
         data = ARCH.decompress(data)
     return data
@@ -432,7 +436,8 @@ def main():
             print_lookup(f, lookup, options.query,
                          blocks[g.Block.B_STOPS], stops)
     elif options.block == 'calendar':
-        print_calendar(f, blocks[g.Block.B_CALENDAR], calendar, options.id)
+        print_calendar(f, footer.compressed, blocks[g.Block.B_CALENDAR],
+                       calendar, options.id)
     elif options.block == 'routes':
         print_route(
             f, footer.compressed, blocks[g.Block.B_ROUTES], routes, options.id)

@@ -295,7 +295,7 @@ message Itinerary {
   // Granularity is 5 seconds, rounded down.
   repeated uint32 departure_deltas = 7;
 
-  bytes service_ids = 8; // instead of lengths we pack the single remaning mandatory field, uint RLE
+  repeated uint32 service_ids = 8; // instead of lengths we pack the single remaning mandatory field
   bytes trips = 9; // no point in reading the chunk separately
 }
 

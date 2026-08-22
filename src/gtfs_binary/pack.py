@@ -18,6 +18,8 @@ def main():
     parser.add_argument(
         '-c', '--compress', action='store_true',
         help='Compress blocks with zstd')
+    parser.add_argument(
+        '--base-date', help='Base date as YYYY-MM-DD (only for testing)')
     options = parser.parse_args()
 
     feed = GtfsBinary(date=int(date.today().strftime('%y%m%d')))
@@ -29,7 +31,7 @@ def main():
         feed.stops = stops.prepare()
         shapes = ShapesReader(z, ids)
         feed.shapes = shapes.prepare()
-        calendar = CalendarReader(z, ids)
+        calendar = CalendarReader(z, ids, options.base_date)
         feed.services = calendar.prepare()
         routes = RoutesReader(z, ids)
         feed.routes = routes.prepare()

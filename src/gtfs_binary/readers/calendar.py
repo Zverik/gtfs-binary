@@ -4,15 +4,24 @@ from datetime import date, timedelta
 
 
 class CalendarReader:
-    def __init__(self, zipfile: ZipFile, ids: IdReference):
+    def __init__(self, zipfile: ZipFile, ids: IdReference,
+                 base_date: str | None):
         self.z = GtfsHelper(zipfile)
         self.ids = ids
         self.calendar: list[CalendarService] = []
+        self.override_base_date = (
+            None if not base_date else date.fromisoformat(base_date))
 
     def prepare(self) -> list[CalendarService]:
         # We compress the calendar to contain just yesterday .. today + 365.
         yesterday = date.today() - timedelta(days=1)
         inayear = date.today() + timedelta(days=366)
+
+        if self.override_base_date:
+            if self.override_base_date < yesterday:
+                yesterday = self.override_base_date
+            if self.override_base_date > inayear:
+                inayear = self.override_base_date
 
         result: dict[str, CalendarService] = {}
         if self.z.has_file('calendar'):
