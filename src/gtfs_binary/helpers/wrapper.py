@@ -10,6 +10,7 @@ from functools import cached_property
 from .. import gtfs_binary_pb2 as g
 from . import encoding as e
 from .trie import Trie, pack_trie
+from .normalize import normalize_name
 
 
 class CalendarService:
@@ -154,8 +155,7 @@ class GtfsBinary:
         return metadata.SerializeToString(), b''.join(chunks)
 
     def pack_lookup(self) -> tuple[bytes, bytes]:
-        # TODO: normalize unicode
-        names = Trie([s.name.lower() for s in self.stops])
+        names = Trie([normalize_name(s.name) for s in self.stops])
         stop_ids = Trie([s.gtfs_id for s in self.stops])
         route_ids = Trie([r.gtfs_id for r in self.routes])
         metadata = g.LookupMetadata(
