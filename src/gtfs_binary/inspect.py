@@ -9,7 +9,7 @@ from datetime import date, timedelta
 from functools import reduce
 from typing import BinaryIO, Any
 from google.protobuf.message import Message
-from .helpers import decoding as dec, PackedTrie, g
+from .helpers import decoding as dec, PackedTrie, normalize_name, g
 
 
 ARCH = zstandard.ZstdDecompressor()
@@ -181,7 +181,7 @@ def print_lookup(f: BinaryIO, meta: g.LookupMetadata,
         print_lookup_metadata(meta)
     else:
         p = PackedTrie(meta.stop_by_name)
-        stop_ids = p.find(query)
+        stop_ids = p.find(normalize_name(query))
         if not stop_ids:
             print('Nothing was found')
         else:
@@ -214,7 +214,7 @@ def print_calendar(f: BinaryIO, compressed: bool, block: g.BlockMetadata,
         2000 + c.base_date // 10000, (c.base_date // 100) % 100,
         c.base_date % 100)
 
-    start_date = reduce(lambda a, b: a + b, c.start_dates[:service_id])
+    start_date = reduce(lambda a, b: a + b, c.start_dates[:service_id], 0)
     print(prep({
         'service_id': service_id,
         'start_date': (base_date + timedelta(start_date)).strftime('%Y-%m-%d'),
