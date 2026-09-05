@@ -28,7 +28,8 @@ package gtfs;
 // File structure: magic bytes 'GTB\n', blocks, Footer message,
 // 2-byte big-endian length of the footer (a hint taken from ORC format).
 message Footer {
-  // Version of the schema.
+  // Version of the schema. When it's bigger than supported,
+  // assume you cannot read the rest of the file.
   uint32 version = 1;
 
   // Date when the original GTFS feed was built, in YYMMDD format (240319).
@@ -43,6 +44,10 @@ message Footer {
   // If true, all blocks are compressed with Zstandard by default.
   // Including all metadata blocks.
   bool compressed = 4;
+
+  // Four integers, coordinated multiplied by 100. First two are lat and lon
+  // of the south-western corner rounded down, other are for the NE corner rounded up.
+  repeated sint32 bbox_lat_lon = 5;
 
   // The rest of the file is blocks in random order.
   repeated BlockMetadata blocks = 6;
@@ -77,7 +82,9 @@ enum Block {
 // Enumerated from zero, like array indices.
 message Agencies {
   repeated Agency agencies = 1;
+  // Markdown-formatted instructions in English on buying tickets and riding.
   repeated string ticket_info = 2;
+  // Links to the real-time information.
   repeated Realtime realtime = 3;
 }
 
@@ -103,6 +110,8 @@ message Realtime {
 enum RealtimeType {
   RT_UNKNOWN = 0;
   RT_GTFS = 1; // GTFS-RT
+  RT_SIRI = 2;
+  RT_SIRI_JSON = 3;
 }
 
 

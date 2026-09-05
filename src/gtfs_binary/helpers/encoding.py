@@ -22,6 +22,7 @@ def pack_strings_common(values: list[str]) -> bytes:
         coded_len = len(coded)
         common_len = 1
         while (common_len < coded_len and
+               common_len < len(last) and
                common_len < 128 and
                coded[common_len] == last[common_len]):
             common_len += 1
@@ -33,7 +34,7 @@ def pack_strings_common(values: list[str]) -> bytes:
                        coded[common_len:])
         else:
             # just append the string
-            if len(coded) >= 128:
+            if coded_len >= 128:
                 result += b'\x80'
             result += coded
         last = coded

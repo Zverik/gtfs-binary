@@ -5,7 +5,7 @@ from math import ceil
 from typing import BinaryIO
 from datetime import date, timedelta
 from collections import defaultdict
-from statistics import mode
+from statistics import mode, quantiles
 from functools import cached_property
 from .. import gtfs_binary_pb2 as g
 from . import encoding as e
@@ -115,6 +115,7 @@ class GtfsBinary:
             date=self.date,
             original_url=self.original_url,
             compressed=compress,
+            bbox_lat_lon=self.get_stop_bbox(),
             blocks=blocks,
         ).SerializeToString()
         fileobj.write(footer)
@@ -219,6 +220,34 @@ class GtfsBinary:
                 [0 if not s.parent_id else s.parent_id - first_id + 1
                  for s in stops])
         return result
+
+    def get_stop_bbox(self) -> list[int]:
+        # We cut off outlines at 1.5 * interquartile range.
+        lat_q = quantiles((s.lat for s in self.stops), n=4)
+        q_min_lat = lat_q[0] - 1.5 * (lat_q[2] - lat_q[0])
+        q_max_lat = lat_q[2] + 1.5 * (lat_q[2] - lat_q[0])
+        lon_q = quantiles((s.lon for s in self.stops), n=4)
+        q_min_lon = lon_q[0] - 1.5 * (lon_q[2] - lon_q[0])
+        q_max_lon = lon_q[2] + 1.5 * (lon_q[2] - lon_q[0])
+
+        # Now just iterate over the stops.
+        max_coord = 181 * 1e5
+        min_lat = max_coord
+        min_lon = max_coord
+        max_lat = -max_coord
+        max_lon = -max_coord
+        for stop in self.stops:
+            if stop.lat > max_lat and stop.lat <= q_max_lat:
+                max_lat = stop.lat
+            if stop.lat < min_lat and stop.lat >= q_min_lat:
+                min_lat = stop.lat
+            if stop.lon > max_lon and stop.lon <= q_max_lon:
+                max_lon = stop.lon
+            if stop.lon < min_lon and stop.lon >= q_min_lon:
+                min_lon = stop.lon
+        if max_lon < min_lon or max_lat < min_lat:
+            return []
+        return [round(v / 1000) for v in (min_lat, min_lon, max_lat, max_lon)]
 
     def routes_by_stops(self) -> dict[int, list[int]]:
         result: dict[int, set[int]] = defaultdict(set)

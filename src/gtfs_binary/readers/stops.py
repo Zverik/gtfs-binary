@@ -17,12 +17,14 @@ class StopsReader:
         parents: dict[str, str] = {}
         with self.z.open_table('stops') as f:
             for row, stop_id in self.z.table_reader(f, 'stop_id'):
-                parent_id = row.get('parent_station')
-                if parent_id:
-                    parents[stop_id] = parent_id
                 loc_type = row.get('location_type', '')
                 if loc_type and int(loc_type) > 1:
                     continue
+
+                parent_id = row.get('parent_station')
+                if parent_id:
+                    parents[stop_id] = parent_id
+
                 stop = g.StopsChunk(
                     gtfs_id=stop_id,
                     code=row.get('stop_code') or None,

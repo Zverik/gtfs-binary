@@ -26,6 +26,7 @@ def print_footer(f: g.Footer):
         'date': f.date,
         'original_url': f.original_url,
         'compressed': f.compressed,
+        'bbox_lat_lon': list(f.bbox_lat_lon),
     }))
     for b in f.blocks:
         print(prep({
