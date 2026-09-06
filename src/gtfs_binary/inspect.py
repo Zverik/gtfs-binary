@@ -1,18 +1,12 @@
 import argparse
-import struct
-import os
 import json
-import zstandard
 import statistics
 import random
 from datetime import date, timedelta
 from functools import reduce
 from typing import BinaryIO, Any
-from google.protobuf.message import Message
 from .helpers import decoding as dec, PackedTrie, g
-
-
-ARCH = zstandard.ZstdDecompressor()
+from .helpers.readers import read_footer, read_data, read_message, read_block
 
 
 def prep(f: dict) -> str:
@@ -364,27 +358,6 @@ def print_trips(data: bytes, count: int, stops: int, toprint: int,
         print(prep({k: v[i] for k, v in info.items()}))
 
 
-def read_data(f: BinaryIO, offset: int, length: int,
-              compressed: bool = True) -> bytes:
-    f.seek(offset)
-    data = f.read(abs(length))
-    if compressed and length > 0:
-        data = ARCH.decompress(data)
-    return data
-
-
-def read_message(f: BinaryIO, message: Message, offset: int, length: int,
-                 compressed: bool = True) -> Message:
-    message.ParseFromString(read_data(f, offset, length, compressed))
-    return message
-
-
-def read_block(f: BinaryIO, message: Message, block: g.BlockMetadata
-               ) -> Message:
-    return read_message(f, message, block.offset, block.length,
-                        block.compressed)
-
-
 def main():
     parser = argparse.ArgumentParser(
         description='Inspects a GTFS feed into a binary format')
@@ -397,15 +370,7 @@ def main():
     options = parser.parse_args()
 
     f = open(options.input, 'rb')
-    if f.read(4) != b'GTB\n':
-        print('The header does not match the spec.')
-        return
-
-    f.seek(-2, os.SEEK_END)
-    footer_len = struct.unpack('>H', f.read(2))[0]
-    f.seek(-2-footer_len, os.SEEK_END)
-    footer = g.Footer()
-    footer.ParseFromString(f.read(footer_len))
+    footer = read_footer(f)
 
     blocks = {b.block: b for b in footer.blocks}
     agencies = read_block(f, g.Agencies(), blocks[g.Block.B_AGENCIES])
