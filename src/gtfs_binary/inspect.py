@@ -367,10 +367,26 @@ def main():
         help='Block name (agencies/stops/lookup/shapes/calendar/routes)')
     parser.add_argument('--id', type=int, help='Object id to print')
     parser.add_argument('-q', '--query', help='Query string for lookup')
+    parser.add_argument(
+        '-s', '--single',
+        help='Extract a single value from the footer: '
+        'version/date/url/compressed')
     options = parser.parse_args()
 
     f = open(options.input, 'rb')
     footer = read_footer(f)
+
+    if options.single:
+        s = options.single
+        if s == 'version':
+            print(footer.version)
+        elif s == 'date':
+            print(footer.date)
+        elif s == 'url':
+            print(footer.original_url)
+        elif s == 'compressed':
+            print('1' if footer.compressed else '0')
+        return
 
     blocks = {b.block: b for b in footer.blocks}
     agencies = read_block(f, g.Agencies(), blocks[g.Block.B_AGENCIES])
