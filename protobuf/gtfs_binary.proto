@@ -51,6 +51,9 @@ message Footer {
 
   // The rest of the file is blocks in random order.
   repeated BlockMetadata blocks = 6;
+
+  string title = 7;
+  string title_en = 8;
 }
 
 message BlockMetadata {

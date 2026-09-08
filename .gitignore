@@ -14,4 +14,5 @@ wheels/
 *.gz
 *.gtd
 *.diff
+*.json
 .python-version

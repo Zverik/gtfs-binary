@@ -11,7 +11,8 @@ from .helpers.readers import read_footer, read_data, read_message, read_block
 
 def prep(f: dict) -> str:
     return json.dumps(
-        {k: v for k, v in f.items() if v is not None}, ensure_ascii=False)
+        {k: v for k, v in f.items() if v is not None and v != ""},
+        ensure_ascii=False)
 
 
 def print_footer(f: g.Footer):
@@ -21,6 +22,8 @@ def print_footer(f: g.Footer):
         'original_url': f.original_url,
         'compressed': f.compressed,
         'bbox_lat_lon': list(f.bbox_lat_lon),
+        'title': f.title,
+        'title_en': f.title_en,
     }))
     for b in f.blocks:
         print(prep({
@@ -41,6 +44,8 @@ def print_agencies(f: g.Agencies):
             'phone': a.phone,
             'fare_url': a.fare_url,
             'email': a.email,
+            'realtime': a.realtime or None,
+            'ticket_info': a.ticket_info or None,
         }))
 
 

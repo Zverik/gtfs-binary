@@ -64,9 +64,56 @@ class IdReference:
         self.services: dict[str, int] = {}
 
 
+class Metadata:
+    def __init__(self, data: dict) -> None:
+        self.title = data.get('title')
+        self.title_en = data.get('title_en')
+
+        self.realtime: list[g.Realtime] = []
+        self.realtime_agencies: dict[str, int] = {}
+        self.realtime_types = {
+            'gtfs': g.RealtimeType.RT_GTFS,
+            'gtfs_rt': g.RealtimeType.RT_GTFS,
+            'siri': g.RealtimeType.RT_SIRI,
+            'siri_json': g.RealtimeType.RT_SIRI_JSON,
+        }
+
+        for rt in data.get('realtime', []):
+            url = rt.get('url')
+            typ = rt.get('type')
+            if not url or not typ:
+                continue
+            agencies = rt.get('agencies')
+            self.realtime.append(g.Realtime(
+                type=self.realtime_types[typ],
+                url=url,
+            ))
+            if not agencies or agencies == 'all':
+                self.realtime_agencies[''] = len(self.realtime) - 1
+            else:
+                for a in agencies:
+                    self.realtime_agencies[a] = len(self.realtime) - 1
+
+        self.ticket_info: list[str] = []
+        self.ti_agencies: dict[str, int] = {}
+        for ti in data.get('ticket_info', []):
+            info = ti.get('content')
+            if not info:
+                continue
+            self.ticket_info.append(info)
+            agencies = ti.get('agencies')
+            if not agencies or agencies == 'all':
+                self.ti_agencies[''] = len(self.ticket_info) - 1
+            else:
+                for a in agencies:
+                    self.ti_agencies[a] = len(self.ticket_info) - 1
+
+
 class GtfsBinary:
-    def __init__(self, date: int, original_url: str | None = None):
+    def __init__(self, date: int, original_url: str | None = None,
+                 metadata: Metadata | None = None):
         self.date = date
+        self.metadata = metadata or Metadata({})
         self.original_url = original_url
         self.agencies: list[g.Agency] = []
         self.shapes: list[g.Shape] = []
@@ -81,6 +128,7 @@ class GtfsBinary:
         self.trip_refs: dict[str, tuple[int, int]] = {}
         # trip_id → trip data
         self.trips: dict[str, Trip] = {}
+        self.ids = IdReference()
         self.compressed = True
         self.arch = zstandard.ZstdCompressor(level=10)
 
@@ -117,6 +165,8 @@ class GtfsBinary:
             compressed=compress,
             bbox_lat_lon=self.get_stop_bbox(),
             blocks=blocks,
+            title=self.metadata.title,
+            title_en=self.metadata.title_en,
         ).SerializeToString()
         fileobj.write(footer)
         fileobj.write(struct.pack('>H', len(footer)))
@@ -135,7 +185,30 @@ class GtfsBinary:
         return False, chunk
 
     def pack_agencies(self) -> tuple[bytes, bytes]:
-        result = g.Agencies(agencies=self.agencies)
+        realtime: list[g.Realtime] = [g.Realtime()]
+        seen_rt = set[int]()
+        ticket_info: list[str] = ['']
+        seen_ti = set[int]()
+        res_agencies: list[g.Agency] = []
+        agency_ids = {n: gtfs_id for gtfs_id, n in self.ids.agencies.items()}
+        for i, agency in enumerate(self.agencies):
+            rt_idx = self.metadata.realtime_agencies.get(agency_ids[i])
+            if rt_idx is not None and rt_idx not in seen_rt:
+                realtime.append(self.metadata.realtime[rt_idx])
+                agency.realtime = len(realtime) - 1
+
+            ti_idx = self.metadata.ti_agencies.get(agency_ids[i])
+            if ti_idx is not None and ti_idx not in seen_ti:
+                ticket_info.append(self.metadata.ticket_info[ti_idx])
+                agency.ticket_info = len(ticket_info) - 1
+
+            res_agencies.append(agency)
+
+        result = g.Agencies(
+            agencies=res_agencies,
+            ticket_info=[] if len(ticket_info) == 1 else ticket_info,
+            realtime=[] if len(realtime) == 1 else realtime,
+        )
         return result.SerializeToString(), b''
 
     def pack_shapes(self, chunk_size: int = 10) -> tuple[bytes, bytes]:

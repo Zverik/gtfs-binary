@@ -1,7 +1,8 @@
 import argparse
+import json
 from datetime import date
 from zipfile import ZipFile
-from .helpers import GtfsBinary, IdReference, readers
+from .helpers import GtfsBinary, readers, Metadata
 from .readers import (
     AgencyReader, StopsReader, ShapesReader, CalendarReader,
     RoutesReader, ItineraryReader, TripsReader,
@@ -9,30 +10,31 @@ from .readers import (
 
 
 def pack(filename: str, output: str, compress: bool = False,
-         base_date: str | None = None, follows: str | None = None):
+         base_date: str | None = None, follows: str | None = None,
+         metadata: dict | None = None):
     if follows:
         with open(follows, 'rb') as f:
             footer = readers.read_footer(f)
         version = footer.date + 1
     else:
         version = int(date.today().strftime('%y%m%d'))
-    feed = GtfsBinary(date=version)
-    ids = IdReference()
+    feed = GtfsBinary(date=version, metadata=None if not metadata
+                      else Metadata(metadata))
     with ZipFile(filename, 'r') as z:
-        agencies = AgencyReader(z, ids)
+        agencies = AgencyReader(z, feed.ids)
         feed.agencies = agencies.prepare()
-        stops = StopsReader(z, ids)
+        stops = StopsReader(z, feed.ids)
         feed.stops = stops.prepare()
-        shapes = ShapesReader(z, ids)
+        shapes = ShapesReader(z, feed.ids)
         feed.shapes = shapes.prepare()
-        calendar = CalendarReader(z, ids, base_date)
+        calendar = CalendarReader(z, feed.ids, base_date)
         feed.services = calendar.prepare()
-        routes = RoutesReader(z, ids)
+        routes = RoutesReader(z, feed.ids)
         feed.routes = routes.prepare()
-        itins = ItineraryReader(z, ids)
+        itins = ItineraryReader(z, feed.ids)
         feed.itineraries = itins.prepare()
         feed.trip_refs = itins.trip_refs
-        trips = TripsReader(z, ids, feed.stops)
+        trips = TripsReader(z, feed.ids, feed.stops)
         feed.trips = trips.prepare()
 
     with open(output, 'wb') as f:
@@ -54,9 +56,19 @@ def main():
     parser.add_argument(
         '-f', '--follows',
         help='A feed from which to take a version and increment by one')
+    parser.add_argument(
+        '-m', '--metadata',
+        help='JSON-formatted file with a feed metadata')
     options = parser.parse_args()
+
+    if options.metadata:
+        with open(options.metadata, 'r') as f:
+            meta = json.load(f)
+    else:
+        meta = None
+
     pack(options.input, options.output, options.compress, options.base_date,
-         options.follows)
+         options.follows, meta)
 
 
 if __name__ == '__main__':
