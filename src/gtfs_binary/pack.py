@@ -11,11 +11,14 @@ from .readers import (
 
 def pack(filename: str, output: str, compress: bool = False,
          base_date: str | None = None, follows: str | None = None,
-         metadata: dict | None = None):
+         metadata: dict | None = None) -> int:
     if follows:
-        with open(follows, 'rb') as f:
-            footer = readers.read_footer(f)
-        version = footer.date + 1
+        try:
+            with open(follows, 'rb') as f:
+                footer = readers.read_footer(f)
+            version = footer.date + 1
+        except IOError:
+            version = int(follows) + 1
     else:
         version = int(date.today().strftime('%y%m%d'))
     feed = GtfsBinary(date=version, metadata=None if not metadata
@@ -39,6 +42,8 @@ def pack(filename: str, output: str, compress: bool = False,
 
     with open(output, 'wb') as f:
         feed.write(f, compress=compress)
+
+    return version
 
 
 def main():
