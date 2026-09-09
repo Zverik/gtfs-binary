@@ -74,8 +74,10 @@ class Metadata:
         self.realtime_types = {
             'gtfs': g.RealtimeType.RT_GTFS,
             'gtfs_rt': g.RealtimeType.RT_GTFS,
+            'gtfs-rt': g.RealtimeType.RT_GTFS,
             'siri': g.RealtimeType.RT_SIRI,
             'siri_json': g.RealtimeType.RT_SIRI_JSON,
+            'siri-json': g.RealtimeType.RT_SIRI_JSON,
         }
 
         for rt in data.get('realtime', []):
