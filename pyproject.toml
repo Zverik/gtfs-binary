@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gtfs-binary"
-version = "0.1.0"
+version = "0.1.1"
 description = "Library and tool to work with GTFS feeds in a binary format"
 keywords = ["gtfs", "transit", "feed", "gtb", "command line"]
 readme = "README.md"
