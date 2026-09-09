@@ -57,9 +57,9 @@ class RoutesReader:
             return g.RouteType.T_MONORAIL
         if t in (400, 403, 403):
             return g.RouteType.T_URBAN_RAIL
-        if t == 1000:
+        if t // 100 == 10:
             return g.RouteType.T_WATER
-        if t == 1100:
+        if t // 100 == 11:
             return g.RouteType.T_AIR
         if t // 100 == 15:
             return g.RouteType.T_TAXI
