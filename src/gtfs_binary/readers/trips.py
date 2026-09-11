@@ -135,14 +135,10 @@ class TripsReader:
             trip.approximate = row.get('exact_times') != '1'
 
     def parse_time(self, tim: str) -> int | None:
-        tim = tim.strip()
-        if not tim:
+        parts = tim.strip().split(':')
+        if len(parts) != 3:
             return None
-        if len(tim) == 7:
-            tim = '0' + tim
-        if len(tim) != 8:
-            raise ValueError(f'Wrong time value: {tim}')
-        return int(tim[:2]) * 3600 + int(tim[3:5]) * 60 + int(tim[6:])
+        return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
 
     def parse_accessibility(self, value: str | None) -> int:
         if not value or value == '0':
