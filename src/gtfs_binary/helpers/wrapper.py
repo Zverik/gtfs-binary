@@ -94,7 +94,7 @@ class Metadata:
                 self.realtime_agencies[''] = len(self.realtime) - 1
             else:
                 for a in agencies:
-                    self.realtime_agencies[a] = len(self.realtime) - 1
+                    self.realtime_agencies[str(a)] = len(self.realtime) - 1
 
         self.ticket_info: list[str] = []
         self.ti_agencies: dict[str, int] = {}
@@ -108,7 +108,7 @@ class Metadata:
                 self.ti_agencies[''] = len(self.ticket_info) - 1
             else:
                 for a in agencies:
-                    self.ti_agencies[a] = len(self.ticket_info) - 1
+                    self.ti_agencies[str(a)] = len(self.ticket_info) - 1
 
 
 class GtfsBinary:
