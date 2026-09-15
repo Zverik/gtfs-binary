@@ -70,7 +70,7 @@ class Metadata:
         self.title_en = data.get('title_en')
 
         self.realtime: list[g.Realtime] = []
-        self.realtime_agencies: dict[str, int] = {}
+        self.realtime_agencies: dict[str, list[int]] = defaultdict(list)
         self.realtime_types = {
             'gtfs': g.RealtimeType.RT_GTFS,
             'gtfs_rt': g.RealtimeType.RT_GTFS,
@@ -91,10 +91,11 @@ class Metadata:
                 url=url,
             ))
             if not agencies or agencies == 'all':
-                self.realtime_agencies[''] = len(self.realtime) - 1
+                self.realtime_agencies[''].append(len(self.realtime) - 1)
             else:
                 for a in agencies:
-                    self.realtime_agencies[str(a)] = len(self.realtime) - 1
+                    self.realtime_agencies[str(a)].append(
+                        len(self.realtime) - 1)
 
         self.ticket_info: list[str] = []
         self.ti_agencies: dict[str, int] = {}
@@ -188,21 +189,25 @@ class GtfsBinary:
 
     def pack_agencies(self) -> tuple[bytes, bytes]:
         realtime: list[g.Realtime] = [g.Realtime()]
-        seen_rt = set[int]()
+        seen_rt: dict[int, int] = {}
         ticket_info: list[str] = ['']
-        seen_ti = set[int]()
+        seen_ti: dict[int, int] = {}
         res_agencies: list[g.Agency] = []
         agency_ids = {n: gtfs_id for gtfs_id, n in self.ids.agencies.items()}
         for i, agency in enumerate(self.agencies):
-            rt_idx = self.metadata.realtime_agencies.get(agency_ids[i])
-            if rt_idx is not None and rt_idx not in seen_rt:
-                realtime.append(self.metadata.realtime[rt_idx])
-                agency.realtime = len(realtime) - 1
+            for rt_idx in self.metadata.realtime_agencies.get(
+                    agency_ids[i], []):
+                if rt_idx not in seen_rt:
+                    realtime.append(self.metadata.realtime[rt_idx])
+                    seen_rt[rt_idx] = len(realtime) - 1
+                agency.realtime.append(seen_rt[rt_idx])
 
             ti_idx = self.metadata.ti_agencies.get(agency_ids[i])
-            if ti_idx is not None and ti_idx not in seen_ti:
-                ticket_info.append(self.metadata.ticket_info[ti_idx])
-                agency.ticket_info = len(ticket_info) - 1
+            if ti_idx is not None:
+                if ti_idx not in seen_ti:
+                    ticket_info.append(self.metadata.ticket_info[ti_idx])
+                    seen_ti[ti_idx] = len(ticket_info) - 1
+                agency.ticket_info = seen_ti[ti_idx]
 
             res_agencies.append(agency)
 
