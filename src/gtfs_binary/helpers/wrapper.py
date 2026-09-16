@@ -246,6 +246,20 @@ class GtfsBinary:
         )
         return metadata.SerializeToString(), b''
 
+    def generate_stop_desc(self, stop_id: int):
+        directions = set[str]()
+        for itin in itertools.chain.from_iterable(self.itineraries.values()):
+            try:
+                idx = itin.stops.index(stop_id)
+                last_stop = self.stops[itin.stops[-1]].name
+                direction = (last_stop if len(itin.headsigns) <= idx
+                             else itin.headsigns[idx])
+                if direction.strip():
+                    directions.add(direction)
+            except ValueError:
+                pass
+        return '' if not directions else f'→ {", ".join(sorted(directions))}'
+
     def pack_stops(self) -> tuple[bytes, bytes]:
         has_stations = any(s.parent_id for s in self.stops)
         routes_by_stops = self.routes_by_stops()
