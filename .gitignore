@@ -15,4 +15,5 @@ wheels/
 *.gtd
 *.diff
 *.json
+*.geojson
 .python-version
