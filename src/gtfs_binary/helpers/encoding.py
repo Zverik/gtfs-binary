@@ -71,6 +71,16 @@ def pack_2bit(values: list[int]) -> bytes:
     return result
 
 
+def pack_4bit(values: list[int]) -> bytes:
+    result = b''
+    for chunk in itertools.batched(values, 2):
+        v = 0
+        for i, bit in enumerate(chunk):
+            v += bit if i else bit << 4
+        result += v.to_bytes()
+    return result
+
+
 def pack_uint(value: int) -> bytes:
     if value < 0:
         raise ValueError(f'Value for pack_uint is negative: {value}')

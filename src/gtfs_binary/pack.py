@@ -1,7 +1,7 @@
 import argparse
 import json
-from datetime import date
 from zipfile import ZipFile
+from datetime import date
 from .helpers import GtfsBinary, readers, Metadata
 from .readers import (
     AgencyReader, StopsReader, ShapesReader, CalendarReader,
@@ -11,7 +11,7 @@ from .readers import (
 
 def pack(filename: str, output: str, compress: bool = False,
          base_date: str | None = None, follows: str | None = None,
-         metadata: dict | None = None) -> int:
+         metadata: dict | None = None, feed_date: date | None = None) -> int:
     if follows:
         try:
             with open(follows, 'rb') as f:
@@ -20,9 +20,9 @@ def pack(filename: str, output: str, compress: bool = False,
         except IOError:
             version = int(follows) + 1
     else:
-        version = int(date.today().strftime('%y%m%d'))
-    feed = GtfsBinary(date=version, metadata=None if not metadata
-                      else Metadata(metadata))
+        version = 1
+    feed = GtfsBinary(version=version, feed_date=feed_date, metadata=None
+                      if not metadata else Metadata(metadata))
     with ZipFile(filename, 'r') as z:
         agencies = AgencyReader(z, feed.ids)
         feed.agencies = agencies.prepare()
@@ -73,7 +73,7 @@ def main():
         meta = None
 
     pack(options.input, options.output, options.compress, options.base_date,
-         options.follows, meta)
+         options.follows, meta, None)
 
 
 if __name__ == '__main__':

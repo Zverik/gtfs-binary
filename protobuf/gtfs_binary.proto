@@ -32,10 +32,9 @@ message Footer {
   // assume you cannot read the rest of the file.
   uint32 version = 1;
 
-  // Date when the original GTFS feed was built, in YYMMDD format (240319).
-  // Alternatively, a release number for the feed. The only requirement
+  // A release number for the feed. The only requirement
   // is that newer feeds should have this number greater than the older.
-  uint32 date = 2;
+  uint32 build = 2;
 
   // In case of errors, this would be the reference GTFS feed, zip file itself.
   // Please link to specific builds if possible, e.g. "20240319", not "latest".
@@ -54,6 +53,9 @@ message Footer {
 
   string title = 7;
   string title_en = 8;
+
+  // Date when the original GTFS feed was built, in YYMMDD format (240319).
+  uint32 date = 9;
 }
 
 message BlockMetadata {
@@ -158,6 +160,8 @@ message StopMetadata {
   repeated uint32 chunk_stop_counts = 4;
   // If false, is_station and parent_id in chunks are skipped.
   bool has_stations = 5;
+  // If false, the direction in chunks is skipped.
+  bool has_directions = 6;
 }
 
 // Column-oriented set of stops. Which means, it's a set
@@ -184,6 +188,8 @@ message StopsChunk {
   bool is_station = 9; // we skip all exit/node/boarding stops, bit-packed
   uint32 parent_id = 10; // stop position inside the chunk + 1, RLE-encoded
 
+  Direction direction = 11; // 4-bit packed, 0x12 for 1, 2.
+
   uint32 geohash = 30; // not included, for sorting purposes.
 }
 
@@ -191,6 +197,14 @@ enum Accessibility {
   A_UNKNOWN = 0;
   A_SOME = 1;
   A_NO = 2;
+}
+
+enum Direction {
+  D_UNKNOWN = 0;
+  D_NORTH = 1;
+  D_EAST = 2;
+  D_SOUTH = 3;
+  D_WEST = 4;
 }
 
 

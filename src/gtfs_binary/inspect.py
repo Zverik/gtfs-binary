@@ -18,6 +18,7 @@ def prep(f: dict) -> str:
 def print_footer(f: g.Footer):
     print(prep({
         'version': f.version,
+        'build': f.build,
         'date': f.date,
         'original_url': f.original_url,
         'compressed': f.compressed,
@@ -162,6 +163,10 @@ def print_stop(f: BinaryIO, block: g.BlockMetadata, s: g.StopMetadata,
         info['is_station'] = values[d]
         values, pos = dec.unpack_uints_rle(chunk, pos, chunk_len)
         info['parent_id'] = None if values[d] == 0 else values[d] - 1
+    if s.has_directions:
+        values, pos = dec.unpack_4bit(chunk, pos, chunk_len)
+        if values[d]:
+            info['direction'] = g.Direction.Name(values[d])
     print(prep(info))
 
 

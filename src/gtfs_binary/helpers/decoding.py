@@ -74,6 +74,19 @@ def unpack_2bit(data: bytes, start: int, count: int) -> tuple[list[int], int]:
     return result, start
 
 
+def unpack_4bit(data: bytes, start: int, count: int) -> tuple[list[int], int]:
+    result: list[int] = []
+    if not data:
+        return result, start
+    for byte in range((count + 1) // 2):
+        cnt = min(2, count - byte * 2)
+        result.append(data[start] >> 4)
+        if cnt > 1:
+            result.append(data[start] & 0xF)
+        start += 1
+    return result, start
+
+
 def unpack_uint(data: bytes, start: int) -> tuple[int, int]:
     result = 0
     mult = 1

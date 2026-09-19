@@ -113,9 +113,11 @@ class Metadata:
 
 
 class GtfsBinary:
-    def __init__(self, date: int, original_url: str | None = None,
+    def __init__(self, version: int, original_url: str | None = None,
+                 feed_date: date | None = None,
                  metadata: Metadata | None = None):
-        self.date = date
+        self.version = version
+        self.date = feed_date or date.today()
         self.metadata = metadata or Metadata({})
         self.original_url = original_url
         self.agencies: list[g.Agency] = []
@@ -163,7 +165,8 @@ class GtfsBinary:
         write_block(*self.pack_routes(), g.Block.B_ROUTES)
         footer = g.Footer(
             version=1,
-            date=self.date,
+            build=self.version,
+            date=int(self.date.strftime('%y%m%d')),
             original_url=self.original_url,
             compressed=compress,
             bbox_lat_lon=self.get_stop_bbox(),
@@ -262,6 +265,7 @@ class GtfsBinary:
 
     def pack_stops(self) -> tuple[bytes, bytes]:
         has_stations = any(s.parent_id for s in self.stops)
+        has_directions = any(s.direction for s in self.stops)
         routes_by_stops = self.routes_by_stops()
 
         chunks: list[tuple[bool, bytes]] = []
@@ -281,7 +285,8 @@ class GtfsBinary:
                 geohashes.append(geohash - last_geohash)
                 stop_counts.append(len(chunk))
                 chunks.append(self.compress_if_better(self.pack_stop_chunk(
-                    chunk, has_stations, first_id, routes_by_stops)))
+                    chunk, has_stations, has_directions, first_id,
+                    routes_by_stops)))
                 last_geohash = geohash
                 first_id += len(chunk)
 
@@ -291,10 +296,12 @@ class GtfsBinary:
             chunk_lengths=[len(c[1]) * (1 if c[0] else -1) for c in chunks],
             chunk_stop_counts=stop_counts,
             has_stations=has_stations,
+            has_directions=has_directions,
         )
         return metadata.SerializeToString(), b''.join(c[1] for c in chunks)
 
     def pack_stop_chunk(self, stops: list[g.StopsChunk], stations: bool,
+                        directions: bool,
                         first_id: int, routes_by_stops: dict[int, list[int]],
                         ) -> bytes:
         result = b''
@@ -313,6 +320,8 @@ class GtfsBinary:
             result += e.pack_uints_rle(
                 [0 if not s.parent_id else s.parent_id - first_id + 1
                  for s in stops])
+        if directions:
+            result += e.pack_4bit([s.direction for s in stops])
         return result
 
     def get_stop_bbox(self) -> list[int]:

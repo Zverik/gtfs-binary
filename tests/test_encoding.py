@@ -19,6 +19,8 @@ class TestEncoding(unittest.TestCase):
             b'\xF0\x80')
         self.assertEqual(
             e.pack_2bit([3, 2, 1, 0, 2]), b'\xE4\x80')
+        self.assertEqual(
+            e.pack_4bit([4, 0, 1, 7, 3]), b'\x40\x17\x30')
 
         self.assertEqual(e.pack_uint(0), b'\x00')
         self.assertEqual(e.pack_uint(127), b'\x7f')
@@ -75,6 +77,9 @@ class TestEncoding(unittest.TestCase):
         bits2 = [3, 2, 1, 0, 2]
         p4 = e.pack_2bit(bits2)
         self.assertEqual(d.unpack_2bit(b'1'+p4, 1, 5), (bits2, 1+len(p4)))
+        bits4 = [4, 0, 7, 1, 3]
+        p44 = e.pack_4bit(bits4)
+        self.assertEqual(d.unpack_4bit(b'1'+p44, 1, 5), (bits4, 1+len(p44)))
 
         self.assertEqual(d.unpack_uint(e.pack_uint(0), 0), (0, 1))
         self.assertEqual(d.unpack_uint(b'1'+e.pack_uint(127), 1), (127, 2))
