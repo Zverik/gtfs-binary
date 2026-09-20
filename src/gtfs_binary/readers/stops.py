@@ -1,8 +1,5 @@
-from ..helpers import GtfsHelper, IdReference, g
+from ..helpers import GtfsHelper, IdReference, g, STOP_COORD_SCALE
 from zipfile import ZipFile
-
-
-COORD_SCALE = 100000
 
 
 class StopsReader:
@@ -30,8 +27,8 @@ class StopsReader:
                     code=row.get('stop_code') or None,
                     desc=row.get('stop_desc') or None,
                     name=row['stop_name'],
-                    lat=round(float(row['stop_lat']) * COORD_SCALE),
-                    lon=round(float(row['stop_lon']) * COORD_SCALE),
+                    lat=round(float(row['stop_lat']) * STOP_COORD_SCALE),
+                    lon=round(float(row['stop_lon']) * STOP_COORD_SCALE),
                     wheelchair=parse_accessibility(
                         row.get('wheelchair_boarding')),
                     is_station=loc_type == '1',
@@ -40,8 +37,8 @@ class StopsReader:
                 # Precision 22 is equivalent to tiles at zoom 12.
                 # 24 is for 13.
                 stop.geohash = geohash(
-                    float(stop.lat) / COORD_SCALE,
-                    float(stop.lon) / COORD_SCALE, 24)
+                    float(stop.lat) / STOP_COORD_SCALE,
+                    float(stop.lon) / STOP_COORD_SCALE, 24)
                 stops[stop_id] = stop
 
         # Set the same geohash for children as for the parent.

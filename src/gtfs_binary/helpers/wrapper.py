@@ -6,53 +6,11 @@ from typing import BinaryIO
 from datetime import date, timedelta
 from collections import defaultdict
 from statistics import mode, quantiles
-from functools import cached_property
 from .. import gtfs_binary_pb2 as g
 from . import encoding as e
 from .trie import Trie, pack_trie
-
-
-class CalendarService:
-    def __init__(self, start_date: date, end_date: date,
-                 weekdays: list[bool]) -> None:
-        self.start_date = start_date
-        self.end_date = end_date
-        self.weekdays = weekdays
-        self.including_days: list[date] = []
-        self.except_days: list[date] = []
-
-
-class Trip:
-    def __init__(self, service_id: int,
-                 departures: list[int], end_time: int = 0,
-                 interval: int = 0, approximate: bool = False,
-                 wheelchair: g.Accessibility = g.Accessibility.A_UNKNOWN,
-                 bikes: g.Accessibility = g.Accessibility.A_UNKNOWN) -> None:
-        self.service_id = service_id
-        self.approximate = approximate
-        self.departures = departures
-        self.end_time = end_time
-        self.interval = end_time
-        self.wheelchair = wheelchair
-        self.bikes = bikes
-
-    @cached_property
-    def departure_deltas(self) -> list[int]:
-        return [d[1] - d[0] for d in itertools.pairwise(self.departures)]
-
-
-class Itinerary:
-    def __init__(self, shape_id: int | None, stops: list[int],
-                 headsigns: list[str],
-                 pickup_types: list[g.PickupDropoff],
-                 dropoff_types: list[g.PickupDropoff],
-                 opposite_direction: bool):
-        self.shape_id = shape_id
-        self.stops = stops
-        self.headsigns = headsigns
-        self.pickup_types = pickup_types
-        self.dropoff_types = dropoff_types
-        self.opposite_direction = opposite_direction
+from .annotate import StopDirections
+from .models import CalendarService, Trip, Itinerary, STOP_COORD_SCALE
 
 
 class IdReference:
@@ -249,14 +207,14 @@ class GtfsBinary:
         )
         return metadata.SerializeToString(), b''
 
-    def generate_stop_desc(self, stop_id: int):
+    def generate_stop_desc(self, stop_id: int, use_headsigns: bool = True):
         directions = set[str]()
         for itin in itertools.chain.from_iterable(self.itineraries.values()):
             try:
                 idx = itin.stops.index(stop_id)
-                last_stop = self.stops[itin.stops[-1]].name
-                direction = (last_stop if len(itin.headsigns) <= idx
-                             else itin.headsigns[idx])
+                direction = self.stops[itin.stops[-1]].name
+                if use_headsigns and len(itin.headsigns) <= idx:
+                    direction = itin.headsigns[idx]
                 if direction.strip():
                     directions.add(direction)
             except ValueError:
@@ -264,6 +222,9 @@ class GtfsBinary:
         return '' if not directions else f'→ {", ".join(sorted(directions))}'
 
     def pack_stops(self) -> tuple[bytes, bytes]:
+        StopDirections(
+            self.stops, self.itineraries, self.shapes).fill_stop_directions()
+
         has_stations = any(s.parent_id for s in self.stops)
         has_directions = any(s.direction for s in self.stops)
         routes_by_stops = self.routes_by_stops()
@@ -350,7 +311,8 @@ class GtfsBinary:
                 min_lon = stop.lon
         if max_lon < min_lon or max_lat < min_lat:
             return []
-        return [round(v / 1000) for v in (min_lat, min_lon, max_lat, max_lon)]
+        return [round(v / STOP_COORD_SCALE * 100)
+                for v in (min_lat, min_lon, max_lat, max_lon)]
 
     def routes_by_stops(self) -> dict[int, list[int]]:
         result: dict[int, set[int]] = defaultdict(set)

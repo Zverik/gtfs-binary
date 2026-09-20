@@ -1,8 +1,5 @@
-from ..helpers import GtfsHelper, IdReference, g
+from ..helpers import GtfsHelper, IdReference, g, SHAPE_SCALE
 from zipfile import ZipFile
-
-
-SHAPE_SCALE = 100000
 
 
 class ShapesReader:
