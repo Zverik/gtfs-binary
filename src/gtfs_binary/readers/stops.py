@@ -3,11 +3,13 @@ from zipfile import ZipFile
 
 
 class StopsReader:
-    def __init__(self, zipfile: ZipFile, ids: IdReference):
+    def __init__(self, zipfile: ZipFile, ids: IdReference,
+                 descs: dict[str, str] | None = None):
         self.z = GtfsHelper(zipfile)
         self.ids = ids
         self.stops: list[g.StopsChunk] = []
         self.geohash_xor = 0
+        self.descs = descs or {}
 
     def prepare(self) -> list[g.StopsChunk]:
         stops: dict[str, g.StopsChunk] = {}
@@ -25,7 +27,7 @@ class StopsReader:
                 stop = g.StopsChunk(
                     gtfs_id=stop_id,
                     code=row.get('stop_code') or None,
-                    desc=row.get('stop_desc') or None,
+                    desc=self.descs.get(stop_id) or row.get('stop_desc'),
                     name=row['stop_name'],
                     lat=round(float(row['stop_lat']) * STOP_COORD_SCALE),
                     lon=round(float(row['stop_lon']) * STOP_COORD_SCALE),

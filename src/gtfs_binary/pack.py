@@ -11,7 +11,8 @@ from .readers import (
 
 def pack(filename: str, output: str, compress: bool = False,
          base_date: str | None = None, follows: str | None = None,
-         metadata: dict | None = None, feed_date: date | None = None) -> int:
+         metadata: dict | None = None, feed_date: date | None = None,
+         stop_descs: dict[str, str] | None = None) -> int:
     if follows:
         try:
             with open(follows, 'rb') as f:
@@ -26,7 +27,7 @@ def pack(filename: str, output: str, compress: bool = False,
     with ZipFile(filename, 'r') as z:
         agencies = AgencyReader(z, feed.ids)
         feed.agencies = agencies.prepare()
-        stops = StopsReader(z, feed.ids)
+        stops = StopsReader(z, feed.ids, stop_descs)
         feed.stops = stops.prepare()
         shapes = ShapesReader(z, feed.ids)
         feed.shapes = shapes.prepare()
@@ -73,7 +74,7 @@ def main():
         meta = None
 
     pack(options.input, options.output, options.compress, options.base_date,
-         options.follows, meta, None)
+         options.follows, meta, None, None)
 
 
 if __name__ == '__main__':
