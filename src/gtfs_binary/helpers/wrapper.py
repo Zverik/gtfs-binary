@@ -222,8 +222,8 @@ class GtfsBinary:
         return '' if not directions else f'→ {", ".join(sorted(directions))}'
 
     def pack_stops(self) -> tuple[bytes, bytes]:
-        StopDirections(
-            self.stops, self.itineraries, self.shapes).fill_stop_directions()
+        #StopDirections(
+        #    self.stops, self.itineraries, self.shapes).fill_stop_directions()
 
         has_stations = any(s.parent_id for s in self.stops)
         has_directions = any(s.direction for s in self.stops)
@@ -449,9 +449,6 @@ class GtfsBinary:
                 (trip_id, self.trips[trip_id]))
 
         for route_id, route in enumerate(self.routes):
-            if route_id not in self.itineraries:
-                continue
-
             route_trips = trip_index[route_id]
             route.has_frequencies = False
             for itrips in route_trips.values():

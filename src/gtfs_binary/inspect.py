@@ -251,12 +251,10 @@ def print_calendar(f: BinaryIO, compressed: bool, block: g.BlockMetadata,
 
     current_date = base_date + timedelta(days=today_month * c.days_in_month)
     for i, cdate in enumerate(month.dates):
-        if i == 0:
-            skip = 0
-        elif i < len(month.date_offsets):
+        if i < len(month.date_offsets):
             skip = month.date_offsets[i]
         else:
-            skip = 1
+            skip = 1 if i > 0 else 0
 
         current_date += timedelta(days=skip)
         if current_date == today:
@@ -376,6 +374,7 @@ def main():
         '-b', '--block',
         help='Block name (agencies/stops/lookup/shapes/calendar/routes)')
     parser.add_argument('--id', type=int, help='Object id to print')
+    parser.add_argument('--gtfs', help='GTFS id to lookup (stops and routes)')
     parser.add_argument('-q', '--query', help='Query string for lookup')
     parser.add_argument(
         '-s', '--single',
@@ -419,7 +418,18 @@ def main():
         print_shape(
             f, footer.compressed, blocks[g.Block.B_SHAPES], shapes, options.id)
     elif options.block == 'stops':
-        print_stop(f, blocks[g.Block.B_STOPS], stops, options.id)
+        stop_id = None
+        if options.gtfs:
+            p = PackedTrie(lookup.stop_by_gtfs_id)
+            stop_ids = p.find(options.gtfs)
+            if not stop_ids:
+                print(f'No stops found by gtfs id {options.gtfs}')
+            else:
+                if len(stop_ids) > 1:
+                    print('Many stops found for gtfs id: '
+                          f'{", ".join(str(s) for s in stop_ids)}')
+                stop_id = stop_ids[0]
+        print_stop(f, blocks[g.Block.B_STOPS], stops, options.id or stop_id)
     elif options.block == 'lookup':
         if not options.query:
             print('--query parameter is required')
@@ -430,8 +440,20 @@ def main():
         print_calendar(f, footer.compressed, blocks[g.Block.B_CALENDAR],
                        calendar, options.id)
     elif options.block == 'routes':
+        route_id = None
+        if options.gtfs:
+            p = PackedTrie(lookup.route_by_gtfs_id)
+            route_ids = p.find(options.gtfs)
+            if not route_ids:
+                print(f'No routes found by gtfs id {options.gtfs}')
+            else:
+                if len(route_ids) > 1:
+                    print('Many routes found for gtfs id: '
+                          f'{", ".join(str(s) for s in route_ids)}')
+                route_id = route_ids[0]
         print_route(
-            f, footer.compressed, blocks[g.Block.B_ROUTES], routes, options.id)
+            f, footer.compressed, blocks[g.Block.B_ROUTES], routes,
+            options.id or route_id)
     else:
         print(f'Unsupported block type: {options.block}')
 
