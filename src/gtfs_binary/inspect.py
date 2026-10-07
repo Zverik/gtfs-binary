@@ -238,7 +238,7 @@ def print_calendar(f: BinaryIO, compressed: bool, block: g.BlockMetadata,
             today = base_date + timedelta(days=c.days_in_month)
             today_month = 1
     offset = block.offset + block.length + sum(
-        c for c in c.month_lengths[:today_month])
+        abs(c) for c in c.month_lengths[:today_month])
     print(f'Day {today.strftime('%Y-%m-%d')} in month {today_month}, '
           f'offset {offset}')
     month = read_message(

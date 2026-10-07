@@ -148,6 +148,76 @@ class GtfsBinary:
             return True, cmp
         return False, chunk
 
+    def prune(self) -> None:
+        # Collect the identifiers of things to remove.
+        # There are two sources for pruning: services that are
+        # outdated or too far in the future, and stops that are
+        # not referenced (including because of those services).
+        removing_services = set(
+            i for i, s in enumerate(self.services)
+            if not any(s.weekdays) and not s.including_days)
+        removing_trips = [
+            i for i, t in self.trips.items()
+            if t.service_id in removing_services]
+        removing_itins = set(
+            self.trip_refs[trip_id] for trip_id in removing_trips)
+        stops_in_use = set[int]()
+        shapes_in_use = set[int]()
+        for route_id, itins in self.itineraries.items():
+            for itin_id, itin in enumerate(itins):
+                if (route_id, itin_id) not in removing_itins:
+                    stops_in_use.update(itin.stops)
+                    if itin.shape_id is not None:
+                        shapes_in_use.add(itin.shape_id)
+
+        # Now remove things bottom-up.
+        new_stop_ids: dict[int, int] = {}
+        next_stop_id = 0
+        for stop_id in range(len(self.stops)):
+            if stop_id in stops_in_use:
+                new_stop_ids[stop_id] = next_stop_id
+                next_stop_id += 1
+        self.stops = [
+            s for i, s in enumerate(self.stops) if i in stops_in_use]
+
+        new_service_ids: dict[int, int] = {}
+        next_service_id = 0
+        for service_id in range(len(self.services)):
+            if service_id not in removing_services:
+                new_service_ids[service_id] = next_service_id
+                next_service_id += 1
+        self.services = [
+            s for i, s in enumerate(self.services)
+            if i not in removing_services]
+
+        new_shape_ids: dict[int, int] = {}
+        next_shape_id = 0
+        for shape_id in range(len(self.shapes)):
+            if shape_id in shapes_in_use:
+                new_shape_ids[shape_id] = next_shape_id
+                next_shape_id += 1
+        self.shapes = [
+            s for i, s in enumerate(self.shapes) if i in shapes_in_use]
+
+        for k in removing_trips:
+            del self.trip_refs[k]
+            del self.trips[k]
+
+        for trip in self.trips.values():
+            trip.service_id = new_service_ids[trip.service_id]
+
+        # We do not have that many itineraries usually, so instead
+        # of removing, we just empty out their stops and shapes.
+        for route_id, itins in self.itineraries.items():
+            for itin_id, itin in enumerate(itins):
+                if (route_id, itin_id) in removing_itins:
+                    itin.stops = []
+                    itin.shape_id = None
+                else:
+                    itin.stops = [new_stop_ids[s] for s in itin.stops]
+                    if itin.shape_id is not None:
+                        itin.shape_id = new_shape_ids[itin.shape_id]
+
     def pack_agencies(self) -> tuple[bytes, bytes]:
         realtime: list[g.Realtime] = [g.Realtime()]
         seen_rt: dict[int, int] = {}

@@ -68,11 +68,6 @@ class CalendarReader:
                                 end_date=day,
                                 weekdays=[False] * 7,
                             )
-                        else:
-                            if day < result[service_id].start_date:
-                                result[service_id].start_date = day
-                            if day > result[service_id].end_date:
-                                result[service_id].end_date = day
                         result[service_id].including_days.append(day)
 
         # Filter and sort the calendar by start_date.

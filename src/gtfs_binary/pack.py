@@ -12,6 +12,7 @@ from .readers import (
 def pack(filename: str, output: str, compress: bool = False,
          base_date: str | None = None, follows: str | None = None,
          metadata: dict | None = None, feed_date: date | None = None,
+         prune: bool = False,
          stop_descs: dict[str, str] | None = None) -> int:
     if follows:
         try:
@@ -22,6 +23,7 @@ def pack(filename: str, output: str, compress: bool = False,
             version = int(follows) + 1
     else:
         version = 1
+
     feed = GtfsBinary(version=version, feed_date=feed_date, metadata=None
                       if not metadata else Metadata(metadata))
     with ZipFile(filename, 'r') as z:
@@ -40,6 +42,9 @@ def pack(filename: str, output: str, compress: bool = False,
         feed.trip_refs = itins.trip_refs
         trips = TripsReader(z, feed.ids, feed.stops)
         feed.trips = trips.prepare()
+
+    if prune:
+        feed.prune()
 
     with open(output, 'wb') as f:
         feed.write(f, compress=compress)
@@ -65,6 +70,9 @@ def main():
     parser.add_argument(
         '-m', '--metadata',
         help='JSON-formatted file with a feed metadata')
+    parser.add_argument(
+        '-p', '--prune', action='store_true',
+        help='Prune the feed to skip unreferenced trips and stops')
     options = parser.parse_args()
 
     if options.metadata:
@@ -74,7 +82,7 @@ def main():
         meta = None
 
     pack(options.input, options.output, options.compress, options.base_date,
-         options.follows, meta, None, None)
+         options.follows, meta, None, options.prune, None)
 
 
 if __name__ == '__main__':
